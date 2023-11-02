@@ -93,7 +93,6 @@ struct ModeInfo
 };
 #define kcmodesMax 16
 
-struct Palette;
 class Rect;
 class DibBitmap;
 class UpdateMap;
@@ -107,7 +106,6 @@ public:
     ~Display();
 
     bool Init();
-    void SetPalette(Palette *ppal);
     int GetModeCount();
     void GetModeInfo(int imode, ModeInfo *pmode);
     int GetMode(ModeInfo *pmode);
@@ -123,32 +121,19 @@ public:
     void ResetScrollOffset();
     SpriteManager *GetSpriteManager();
     void SetFormMgrs(FormMgr *pfrmmSim, FormMgr *pfrmmInput);
-    void RenderGameSurface();
-    float Density();
     void SetShouldRender(bool fsr);
+    SDL_Renderer *Renderer();
 
 private:
     int m_imode;
     ModeInfo m_amodeInfo[kcmodesMax];
     int m_cmodes;
-
     int m_cx;
     int m_cy;
-    DibBitmap *m_pbmBack;
-    DibBitmap *m_pbmFront;
+    DibBitmap *m_pbm;
     DibBitmap *m_pbmClip;
-
     SDL_Window *m_window;
     SDL_Renderer *m_renderer;
-    SDL_Texture *m_texture;
-
-    byte *m_gamePixels;
-    Uint32 *m_gamePixels32;
-    Uint32 m_palette[256];
-    int m_pitch32;
-    int m_pixelCount;
-
-    float m_density;
     bool m_fShouldRender;
 };
 

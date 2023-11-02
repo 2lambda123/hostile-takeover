@@ -58,21 +58,21 @@ bool FogMap::Init(Size *psizTile, Size *psizMap)
 	// Load the edges
 
 	m_aptbm[15] = NULL;
-	m_aptbm[14] = LoadTBitmap("fog0001.tbm");
-	m_aptbm[13] = LoadTBitmap("fog0010.tbm");
-	m_aptbm[12] = LoadTBitmap("fog0011.tbm");
-	m_aptbm[11] = LoadTBitmap("fog0100.tbm");
-	m_aptbm[10] = LoadTBitmap("fog0101.tbm");
+	m_aptbm[14] = CreateTBitmap("fog0001.png");
+	m_aptbm[13] = CreateTBitmap("fog0010.png");
+	m_aptbm[12] = CreateTBitmap("fog0011.png");
+	m_aptbm[11] = CreateTBitmap("fog0100.png");
+	m_aptbm[10] = CreateTBitmap("fog0101.png");
 	m_aptbm[9] = NULL;
-	m_aptbm[8] = LoadTBitmap("fog0111.tbm");
-	m_aptbm[7] = LoadTBitmap("fog1000.tbm");
+	m_aptbm[8] = CreateTBitmap("fog0111.png");
+	m_aptbm[7] = CreateTBitmap("fog1000.png");
 	m_aptbm[6] = NULL;
-	m_aptbm[5] = LoadTBitmap("fog1010.tbm");
-	m_aptbm[4] = LoadTBitmap("fog1011.tbm");
-	m_aptbm[3] = LoadTBitmap("fog1100.tbm");
-	m_aptbm[2] = LoadTBitmap("fog1101.tbm");
-	m_aptbm[1] = LoadTBitmap("fog1110.tbm");
-	m_aptbm[0] = LoadTBitmap("fog1111.tbm");
+	m_aptbm[5] = CreateTBitmap("fog1010.png");
+	m_aptbm[4] = CreateTBitmap("fog1011.png");
+	m_aptbm[3] = CreateTBitmap("fog1100.png");
+	m_aptbm[2] = CreateTBitmap("fog1101.png");
+	m_aptbm[1] = CreateTBitmap("fog1110.png");
+	m_aptbm[0] = CreateTBitmap("fog1111.png");
 
 	int c = 0;
 	int n;
@@ -83,15 +83,15 @@ bool FogMap::Init(Size *psizTile, Size *psizMap)
 	if (c != 3)
 		return false;
 	
-	m_aptbmGalax[0] = LoadTBitmap("galax1a.tbm");
-	m_aptbmGalax[1] = LoadTBitmap("galax1b.tbm");
-	m_aptbmGalax[2] = LoadTBitmap("galax1c.tbm");
-	m_aptbmGalax[3] = LoadTBitmap("galax2a.tbm");
-	m_aptbmGalax[4] = LoadTBitmap("galax2b.tbm");
-	m_aptbmGalax[5] = LoadTBitmap("galax2c.tbm");
-	m_aptbmGalax[6] = LoadTBitmap("galax3a.tbm");
-	m_aptbmGalax[7] = LoadTBitmap("galax3b.tbm");
-	m_aptbmGalax[8] = LoadTBitmap("galax3c.tbm");
+	m_aptbmGalax[0] = CreateTBitmap("galax1a.png");
+	m_aptbmGalax[1] = CreateTBitmap("galax1b.png");
+	m_aptbmGalax[2] = CreateTBitmap("galax1c.png");
+	m_aptbmGalax[3] = CreateTBitmap("galax2a.png");
+	m_aptbmGalax[4] = CreateTBitmap("galax2b.png");
+	m_aptbmGalax[5] = CreateTBitmap("galax2c.png");
+	m_aptbmGalax[6] = CreateTBitmap("galax3a.png");
+	m_aptbmGalax[7] = CreateTBitmap("galax3b.png");
+	m_aptbmGalax[8] = CreateTBitmap("galax3c.png");
 
 
 	for (n = 0; n < 9; n++) {
@@ -103,7 +103,7 @@ bool FogMap::Init(Size *psizTile, Size *psizMap)
 
 	// Load the wall bitmaps
 
-	m_panidWalls = LoadAnimationData("walls.anir");
+	m_panidWalls = LoadAnimationData("wall.anir");
 	if (m_panidWalls == NULL) {
 		Assert("Failed to load wall.anir");
 		return false;
@@ -354,7 +354,6 @@ void FogMap::Draw(DibBitmap *pbm, int xMap, int yMap, UpdateMap *pupd)
 	int cfInvalidNextScan = sizMap.cx - ctx;
 	Assert(sizMap.cx >= ctx && sizMap.cy >= cty);
 
-	byte *pbDib = pbm->GetBits();
 	byte *pbMapT = &m_pbMap[ty * m_ctxMap + tx];
 	int cbNextScan = m_ctxMap - ctx;
 	int xTile = tx * gcxTile - xMap;
@@ -362,7 +361,7 @@ void FogMap::Draw(DibBitmap *pbm, int xMap, int yMap, UpdateMap *pupd)
 	int xTileStart = xTile;
 	for (int tyT = ty; tyT < ty + cty; tyT++) {
 		int cEmpty = 0;
-		int xStart;
+		int xStart = 0;
 		for (int txT = tx; txT < tx + ctx; txT++) {
 			byte bFog = *pbMapT++ & kbfFogMask;
 			if (*pfInvalid++ == false)
@@ -439,7 +438,6 @@ void FogMap::DrawGalaxite(DibBitmap *pbm, int xMap, int yMap, UpdateMap *pupd, b
 	int cty = (siz.cy + (gcyTile - 1)) / gcyTile + 1;
 	if (ty + cty > m_ctyMap)
 		cty = m_ctyMap - ty;
-	byte *pbDib = pbm->GetBits();
 	byte *pbMapT = &m_pbMap[ty * m_ctxMap + tx];
 	int cbNextScan = m_ctxMap - ctx;
 	int xTile = tx * gcxTile - xMap;

@@ -11,8 +11,7 @@ SdlAnimSprite::SdlAnimSprite(SpriteManager *psprm) {
     cy_ = 0;
     xOrigin_ = 0;
     yOrigin_ = 0;
-    texture_ = NULL;
-    surface_ = NULL;
+    pbm_ = NULL;
     nScale_ = 1.0f;
     x_ = 0;
     y_ = 0;
@@ -24,10 +23,9 @@ SdlAnimSprite::~SdlAnimSprite() {
     psprm_->Remove(this);
 
     crit_.Enter();
-    SDL_DestroyTexture(texture_);
-    texture_ = NULL;
-    SDL_FreeSurface(surface_);
-    surface_ = NULL;
+    if (pbm_)
+        delete pbm_;
+    pbm_ = NULL;
     crit_.Leave();
 }
 
@@ -77,60 +75,12 @@ bool SdlAnimSprite::CreateSurface(UnitGob *pgob) {
     xOrigin_ = rcAni.left;
     yOrigin_ = rcAni.top;
 
-    // Alloc the 8bpp buffer.
-    int cp = cx_ * cy_;
-    byte *pb8 = new byte[cp];
-    if (pb8 == NULL) {
+    // Create the surface
+    pbm_ = CreateDibBitmap(NULL, cx_, cy_);
+    if (pbm_ == NULL)
         return false;
-    }
-
-    // Draw the animation into an 8 bit DibBitmap
-    // The 8->32 conversion palette has been tweaked so that 255
-    // will map to RGBA transparent on output.
-
-    DibBitmap bm;
-    bm.Init(pb8, cx_, cy_);
-    memset(pb8, 255, cp);
-
-    // Subvert the TBitmap shdowing to our purpose.
-    // The background is 255. Force TBitmap shadowing to turn this into 254.
-    // 254 has been to RGBA color with appropriate alpha, when the 8->32bpp
-    // conversion occurs.
-
-    byte bSav = gmpiclriclrShadow[255];
-    gmpiclriclrShadow[255] = 254;
-    pgob->DrawAnimation(&bm, -xOrigin_, -yOrigin_);
-    gmpiclriclrShadow[255] = bSav;
-
-    // Alloc the 32bpp buffer.
-    dword *pdw32 = new dword[cp];
-    if (pdw32 == NULL) {
-        delete[] pb8;
-        return false;
-    }
-
-    // Convert to 32bpp. Sdl will rotate at draw time.
-    byte *pbT = pb8;
-    dword *pdwT = pdw32;
-    int cpT = cp;
-    while (cpT-- != 0) {
-        *pdwT++ = mp8bpp32bpp_[*pbT++];
-    }
-    delete[] pb8;
-
-    // Create the appropriate masks
-
-    dword rmask = 0xff000000;
-    dword gmask = 0x00ff0000;
-    dword bmask = 0x0000ff00;
-    dword amask = 0x000000ff;
-
-    surface_ = SDL_CreateRGBSurfaceFrom(pdw32, cx_, cy_, 32, (cx_ * sizeof(dword)), bmask, gmask, rmask, amask);
-
-    if (surface_ == NULL) {
-        delete[] pdw32;
-        return false;
-    }
+    SDL_SetTextureBlendMode(pbm_->Texture(), SDL_BLENDMODE_BLEND);
+    pgob->DrawAnimation(pbm_, -xOrigin_, -yOrigin_);
     
     return true;
 }
@@ -157,12 +107,8 @@ void SdlAnimSprite::Draw(void *pv, Size *psiz) {
         rcBounds.Height()
     };
 
-    if (surface_ != NULL) {
-        // Create a texture from the surface
-        texture_ = SDL_CreateTextureFromSurface((SDL_Renderer *)pv, surface_);
-
-        // Render the texture
-        SDL_RenderCopy((SDL_Renderer *)pv, texture_, NULL, &rc);
+    if (pbm_ != NULL) {
+        SDL_RenderCopy((SDL_Renderer *)pv, pbm_->Texture(), NULL, &rc);
     }
 
     crit_.Leave();
@@ -194,33 +140,6 @@ void SdlAnimSprite::GetBounds(Rect *prc) {
     prc->top = yNew;
     prc->right = xNew + cxNew;
     prc->bottom = yNew + cyNew;
-}
-
-void SdlAnimSprite::SetPalette(Palette *ppal) {
-    // Set the palette mapping table
-    // Note the AMXs use the first 131 colors of the palette.
-    for (int n = 0; n < BigWord(ppal->cEntries); n++) {
-        byte *pb = (byte *)&mp8bpp32bpp_[n];
-        *pb++ = 255;
-        *pb++ = ppal->argb[n][0];
-        *pb++ = ppal->argb[n][1];
-        *pb++ = ppal->argb[n][2];
-    } 
-
-    // Make the last color of the palete RGBA for transparent.
-    // We'll fill the 8bpp image with this, so that at 8->32 conversion,
-    // we get transparency.
-
-    mp8bpp32bpp_[255] = 0;
-
-    // Make the second to last 40% black. AMX transparent will map to this
-    // with clever remapping. 40% is equivalent to tbitmap shadowmap.
-
-    byte *pb = (byte *)&mp8bpp32bpp_[254];
-    *pb++ = 102;
-    *pb++ = 0;
-    *pb++ = 0;
-    *pb++ = 0;
 }
 
 void SdlAnimSprite::SetScale(float nScale) {

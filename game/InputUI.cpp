@@ -403,7 +403,7 @@ void InputUIForm::InGameMenu()
 			break;
 
 		case kidcOptions:
-			DoModalGameOptionsForm(gsim.GetLevel()->GetPalette(), true);
+			DoModalGameOptionsForm(true);
 			break;
 
 		case kidcHelp:
@@ -536,11 +536,11 @@ void GraffitiScrollControl::OnPaint(DibBitmap *pbm)
 	Rect rcT = m_rc;
 	rcT.Offset(rcForm.left, rcForm.top);
 
-	int iclr = GetColor(kiclrWhite);
-	pbm->Fill(rcT.left + 1, rcT.top, rcT.Width() - 2, 1, iclr);
-	pbm->Fill(rcT.left, rcT.top + 1, 1, rcT.Height() - 2, iclr);
-	pbm->Fill(rcT.right - 1, rcT.top + 1, 1, rcT.Height() - 2, iclr);
-	pbm->Fill(rcT.left + 1, rcT.bottom - 1, rcT.Width() - 2, 1, iclr);
+	Color clr = GetColor(kiclrWhite);
+	pbm->Fill(rcT.left + 1, rcT.top, rcT.Width() - 2, 1, clr);
+	pbm->Fill(rcT.left, rcT.top + 1, 1, rcT.Height() - 2, clr);
+	pbm->Fill(rcT.right - 1, rcT.top + 1, 1, rcT.Height() - 2, clr);
+	pbm->Fill(rcT.left + 1, rcT.bottom - 1, rcT.Width() - 2, 1, clr);
 }
 
 bool GraffitiScrollControl::IsPainting()
@@ -576,7 +576,7 @@ void CreditsControl::OnPaint(DibBitmap *pbm)
 	if (m_fDrawCreditSymbol) 
 		pfnt->DrawText(pbm, "ABC", m_rc.left, m_rc.top, cx, -1);
 	else 
-		pfnt->DrawText(pbm, "JBC", m_rc.left, m_rc.top, cx, -1);
+		pfnt->DrawText(pbm, "LBC", m_rc.left, m_rc.top, cx, -1);
 
 	// Draw credits
 
@@ -672,18 +672,18 @@ void PowerControl::OnPaint(DibBitmap *pbm)
 	int x = m_rc.left + cxLeftSide;
 	int cxMeter = pfnt->GetTextExtent("E");
 	int cxPip = pfnt->GetTextExtent("I");
+    const char *pszTick = "I";
 
-	Color clr;
 	if (m_nSupply < m_nDemand) {
-		clr = GetColor(kiclrRed);
+        cxPip = pfnt->GetTextExtent("K");
+        pszTick = "K";
 	} else {
 		// Dip into the yellow if building a structure might cause demand 
 		// to become less than supply.
-
-		if (m_nSupply - m_nDemand <= m_nDemandMax)
-			clr = GetColor(kiclrYellow);
-		else
-			clr = GetColor(kiclrGreen);
+		if (m_nSupply - m_nDemand <= m_nDemandMax) {
+			cxPip = pfnt->GetTextExtent("J");
+            pszTick = "J";
+        }
 	}
 
 	// UNDONE: handle > 400 units of power
@@ -692,11 +692,13 @@ void PowerControl::OnPaint(DibBitmap *pbm)
 	if (cSupplyPips > kcPowerMeterPips)
 		cSupplyPips = kcPowerMeterPips;
 
-	byte bclr = clr & 0xff;
-	dword dwClr = MAKEDWORD(bclr);
+	for (int i = 0; i < cSupplyPips; i++, x += cxPip) {
+        char szTick[2];
+        strncpyz(szTick, pszTick, 2);
 
-	for (int i = 0; i < cSupplyPips; i++, x += cxPip)
-		pfnt->DrawText(pbm, "I", x, m_rc.top, 1, &dwClr); 
+        // HACK: Power ticks need to overlap by two pixels
+        pfnt->DrawText(pbm, szTick, x - i*2, m_rc.top, 1);
+    }
 
 	// Draw demand indicator
 

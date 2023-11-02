@@ -38,31 +38,15 @@ public:
 Shell gshl;
 Shell::Shell()
 {
-	m_ppal = NULL;
-	m_mpiclriclrShadow = NULL;
 }
 
 bool Shell::Init()
 {
-	m_ppal = (Palette *)gpakr.MapFile("shell.palbin", &m_fmapPalette);
-	Assert(m_ppal != NULL);
-	m_mpiclriclrShadow = (byte *)gpakr.MapFile("shell.palbin.shadowmap", &m_fmapShadowMap);
-	Assert(m_mpiclriclrShadow != NULL);
 	return true;
 }
 
 void Shell::Exit()
 {
-	if (m_ppal != NULL)
-		gpakr.UnmapFile(&m_fmapPalette);
-	if (m_mpiclriclrShadow != NULL)
-		gpakr.UnmapFile(&m_fmapShadowMap);
-}
-
-void Shell::SetPalette()
-{
-	gmpiclriclrShadow = m_mpiclriclrShadow;
-	SetHslAdjustedPalette(m_ppal, gnHueOffset, gnSatMultiplier, gnLumOffset);
 }
 
 int Shell::PlayGame(PlayMode pm, MissionIdentifier *pmiid, Stream *pstm,
@@ -92,8 +76,6 @@ int Shell::PlayGame(PlayMode pm, MissionIdentifier *pmiid, Stream *pstm,
 	} while (nGo == knGoLoadSavedGame);
 
 	// UNDONE: reload space-taking Shell resources
-
-	gmpiclriclrShadow = m_mpiclriclrShadow;
 
 	return nGo;
 }
@@ -215,10 +197,6 @@ void Shell::Launch(bool fLoadReinitializeSave, MissionIdentifier *pmiid)
 			pfrm->GetControlPtr(kidcBuyMe)->Show(false);
 #endif
 
-		// Make Shell palette and shadow map active
-
-		gshl.SetPalette();
-
 		int idc;
 		pfrm->DoModal(&idc);
 		delete pfrm;
@@ -242,7 +220,7 @@ void Shell::Launch(bool fLoadReinitializeSave, MissionIdentifier *pmiid)
             continue;
 
 		case kidcSetupGame:
-			DoModalGameOptionsForm(m_ppal, false);
+			DoModalGameOptionsForm(false);
             continue;
 	
         case kidcForums:
@@ -963,9 +941,9 @@ void ShellForm::OnPaintBackground(DibBitmap *pbm, UpdateMap *pupd)
 
 	Size sizDib;
 	pbm->GetSize(&sizDib);
-	RawBitmap *prbm = LoadRawBitmap("titlescreenbkgd.rbm");
+	TBitmap *ptbm = CreateTBitmap("titlescreenbkgd.png");
 	Size sizBmp;
-	prbm->GetSize(&sizBmp);
+	ptbm->GetSize(&sizBmp);
     
     // Draw middle
 	Rect rcBmp;
@@ -973,7 +951,7 @@ void ShellForm::OnPaintBackground(DibBitmap *pbm, UpdateMap *pupd)
 	rcBmp.top = (sizDib.cy - sizBmp.cy) / 2;
 	rcBmp.right = rcBmp.left + sizBmp.cx;
 	rcBmp.bottom = rcBmp.top + sizBmp.cy;
-	BltHelper(pbm, prbm, pupd, rcBmp.left, rcBmp.top);
+	BltHelper(pbm, ptbm, pupd, rcBmp.left, rcBmp.top);
 
 #if 0
     // Draw left
@@ -987,7 +965,7 @@ void ShellForm::OnPaintBackground(DibBitmap *pbm, UpdateMap *pupd)
     }
 #endif
     
-	delete prbm;
+	delete ptbm;
     
 	// If the screen is wider than the form we clear those areas
 	// out first to the form's background color

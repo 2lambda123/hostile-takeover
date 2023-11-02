@@ -98,9 +98,9 @@ bool StructGob::InitClass(StructConsts *pstruc, IniReader *pini)
 	// Preload the repair symbol bitmap
 
 	if (s_ptbmRepairing == NULL) {
-		s_ptbmRepairing = LoadTBitmap("repairing_symbol.tbm");
+		s_ptbmRepairing = CreateTBitmap("repairing_symbol.png");
 		if (s_ptbmRepairing == NULL) {
-			Assert("Failed to load repairing_symbol.tbm");
+			Assert("Failed to load repairing_symbol.png");
 			return false;
 		}
 	}
@@ -108,9 +108,9 @@ bool StructGob::InitClass(StructConsts *pstruc, IniReader *pini)
 	// Preload the needs power symbol bitmap
 
 	if (s_ptbmNeedsPower == NULL) {
-		s_ptbmNeedsPower = LoadTBitmap("needs_power_symbol.tbm");
+		s_ptbmNeedsPower = CreateTBitmap("needs_power_symbol.png");
 		if (s_ptbmNeedsPower == NULL) {
-			Assert("Failed to load needs_power_symbol.tbm");
+			Assert("Failed to load needs_power_symbol.png");
 			return false;
 		}
 	}
@@ -118,9 +118,9 @@ bool StructGob::InitClass(StructConsts *pstruc, IniReader *pini)
 	// Preload the need credits symbol bitmap
 
 	if (s_ptbmNeedCredits == NULL) {
-		s_ptbmNeedCredits = LoadTBitmap("needs_credits_symbol.tbm");
+		s_ptbmNeedCredits = CreateTBitmap("need_credits_symbol.png");
 		if (s_ptbmNeedCredits == NULL) {
-			Assert("Failed to load need_credits_symbol.tbm");
+			Assert("Failed to load need_credits_symbol.png");
 			return false;
 		}
 	}
@@ -454,15 +454,15 @@ void StructGob::Draw(DibBitmap *pbm, int xViewOrigin, int yViewOrigin, int nLaye
 	switch (nLayer) {
 	case knLayerMiniMap:
 		{
-			int iclr;
+			Color clr;
 			if (m_ff & kfGobSelected)
-				iclr = kiclrWhite;
+				clr = GetColor(kiclrWhite);
 			else 
-				iclr = GetSideColor(m_pplr->GetSide());
+				clr = GetSideColor(m_pplr->GetSide());
 
 			int cxy = gsim.GetMiniMapScale();
 			pbm->Fill(xViewOrigin + MmcFromWc(m_wx), yViewOrigin + MmcFromWc(m_wy), m_pstruc->ctx * cxy, m_pstruc->cty * cxy,
-					GetColor(iclr));
+					clr);
 		}
 		return;
 
@@ -938,7 +938,7 @@ BeginStateMachine
 	OnMsg(kmidSpawnSmoke)
 		if (gwfPerfOptions & kfPerfSmoke) {
 			if (ggobm.IsBelowLimit(knLimitSupport)) {
-				SmokeGob *pgob = new SmokeGob((GetRandom() & 3) + 4);
+				SmokeGob *pgob = new SmokeGob((GetRandom() & 1));
 				Assert(pgob != NULL, "out of memory!");
 				if (pgob != NULL) {
 					WCoord wcx = WcFromTc(m_pstruc->ctx);

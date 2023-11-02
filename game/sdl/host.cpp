@@ -24,6 +24,7 @@ SurfaceProperties gprops;
 SDL_FingerID gtouches[2];
 wi::Point gaptLast[2];
 bool gfWasBackgrounded;
+bool gfSimWasPaused;
 
 char *gpszUdid;
 
@@ -205,22 +206,6 @@ bool ProcessSdlEvent(base::Message *pmsg, Event *pevt)
 
 	switch (event.type) {
 
-    /*
-    Note: SDL sees all mouse/touch input as "coursor input". Mouse events are 
-    processed as touch events and real touch events raise fake mosue events. 
-    Because WI supports multitouch, mouse events and finger events need to be 
-    processed separately. Until a better way is found, use macros to only 
-    process the input events appropriate for the given platform:
-
-    - OS X doesn't support touch input. Thus, only process SDL_MOUSE events.
-    - iOS doesn't support mouse input. Thus, only process SDL_FINGER events.
-    - Android supports both mouse and touch input. Fortunately,
-    SDL_HINT_ANDROID_SEPARATE_MOUSE_AND_TOUCH can be used to process mouse events
-    separately from touch events (it's a shame a similar hint doesn't exist for
-    other platforms). Thus, Android can process both input event types.
-    - Linux... We'll try only processing SDL_MOUSE events for now.
-    */
-
 #if defined(__IPHONEOS__) || defined(__ANDROID__)
     case SDL_FINGERDOWN: {
         for (int i = 0; i < 2; i++) {
@@ -293,7 +278,7 @@ bool ProcessSdlEvent(base::Message *pmsg, Event *pevt)
         break;
 #endif
 
-#if defined(__MACOSX__) || defined(__ANDROID__) || defined(__LINUX__)
+#if defined(__MACOSX__) || defined(__LINUX__)
 	case SDL_MOUSEBUTTONDOWN:
         pevt->eType = penDownEvent;
         pevt->x = event.button.x;
@@ -339,10 +324,6 @@ bool ProcessSdlEvent(base::Message *pmsg, Event *pevt)
 		case SDLK_DELETE:
 			pevt->chr = chrDelete;
 			break;
-
-        case SDLK_AC_BACK:
-            pevt->chr = vchrBack;
-            break;
 
 #if 0			
 		case SDLK_F7:
@@ -402,12 +383,30 @@ bool ProcessSdlEvent(base::Message *pmsg, Event *pevt)
         }
         break;
 
+    case SDL_KEYUP:
+        // pevt->eType = keyUpEvent;
+        switch (event.key.keysym.sym) {
+
+        case SDLK_AC_BACK:
+            pevt->eType = keyDownEvent;
+            pevt->chr = vchrBack;
+            break;
+
+        default:
+            pevt->chr = event.key.keysym.sym;
+            break;
+        }
+        break;
+
     case SDL_APP_DIDENTERFOREGROUND:
         // Allow the display to render
         gpdisp->SetShouldRender(true);
 
         // Unpause simulation
-        ggame.GamePause(false);
+        if (!gfSimWasPaused) {
+            gsim.Pause(false);
+            gfSimWasPaused = false;
+        }
 
         // The client was disconected in SDL_APP_DIDENTERBACKGROUND.
         // Notify the callbacks about this to present the user with a message.
@@ -426,16 +425,16 @@ bool ProcessSdlEvent(base::Message *pmsg, Event *pevt)
 
         // SDL may have released its graphics context if the app was previously
         // backgrounded. This leaves the screen black when the user returns.
-        // Hack: Draw dib and render
+        // Hack: Redraw
         gpmfrmm->DrawFrame(true);
-        gpdisp->RenderGameSurface();
         break;
 
     case SDL_APP_DIDENTERBACKGROUND:
         gfWasBackgrounded = true;
 
         // Pause simulation
-        ggame.GamePause(true);
+        gfSimWasPaused = gsim.IsPaused();
+        gsim.Pause(true);
 
         // Close the connection to the server. If the user returns to the app,
         // SDL_APP_DIDENTERFOREGROUND will notify gptra's callbacks.
@@ -465,7 +464,6 @@ bool ProcessSdlEvent(base::Message *pmsg, Event *pevt)
 
     case SDL_WINDOWEVENT:
         gpmfrmm->DrawFrame(true);
-        gpdisp->RenderGameSurface();
         break;
 
     default:
@@ -642,7 +640,26 @@ long HostRunSpeedTests(DibBitmap *pbmSrc)
 
 dword HostGetCurrentKeyState(dword keyBit)
 {
-    return 0;
+    struct KeyBitVKey {
+        dword keyBit;
+        short vk;
+    } s_akk[] = {
+        {keyBitPageUp, SDL_SCANCODE_UP},
+        {keyBitPageDown, SDL_SCANCODE_DOWN},
+        {keyBitDpadLeft, SDL_SCANCODE_LEFT},
+        {keyBitDpadRight, SDL_SCANCODE_RIGHT},
+        {keyBitDpadButton, SDL_SCANCODE_RETURN},
+    };
+	Assert(keyBit != 0);
+
+	dword keyBitRet = 0;
+    const Uint8 *state = SDL_GetKeyboardState(NULL);
+	for (int i = 0; i < sizeof(s_akk) / sizeof(KeyBitVKey); i++)
+		if ((keyBit & s_akk[i].keyBit) != 0)
+			if (state[s_akk[i].vk])
+				keyBitRet |= s_akk[i].keyBit;
+
+    return keyBitRet;
 }
 
 bool HostIsPenDown()
@@ -681,22 +698,44 @@ FileHandle HostOpenFile(const char *pszFilename, word wf)
     else if (wf == (kfOfRead | kfOfWrite))
         pszMode = "rb+";
 
-    return (FileHandle)fopen((char *)pszFilename, pszMode);
+    return (FileHandle)SDL_RWFromFile(pszFilename, pszMode);
 }
 
 void HostCloseFile(FileHandle hf)
 {
-    fclose((FILE *)hf);
+    SDL_RWclose((SDL_RWops *)hf);
 }
 
-dword HostWriteFile(FileHandle hf, void *pv, dword cb)
+dword HostWriteFile(void *pv, dword c, dword cb, FileHandle hf)
 {
-    return fwrite(pv, 1, cb, (FILE *)hf);
+    // SDL_RWwrite() returns the number of objects written,
+    // which will be less than cb on error
+
+    return (dword)SDL_RWwrite((SDL_RWops *)hf, pv, c, cb);
 }
 
-dword HostReadFile(FileHandle hf, void *pv, dword cb)
+dword HostReadFile(void *pv, dword c, dword cb, FileHandle hf)
 {
-    return fread(pv, 1, cb, (FILE *)hf);
+    // SDLRWread() returns the number of objects read,
+    // or 0 at error or end of file
+
+    return (dword)SDL_RWread((SDL_RWops *)hf, pv, c, cb);
+}
+
+dword HostSeekFile(FileHandle hf, int off, int nOrigin)
+{
+    // SDL_RWseek() returns the final offset in the data
+    // stream after the seek or -1 on error
+
+    return (dword)SDL_RWseek((SDL_RWops *)hf, off, nOrigin);
+}
+
+dword HostTellFile(FileHandle hf)
+{
+    // SDL_RWtell() returns the current offset in the stream,
+    // or -1 if the information can not be determined
+
+    return (dword)SDL_RWtell((SDL_RWops *)hf);
 }
 
 void HostSleep(dword ct)
@@ -740,38 +779,6 @@ void HostGetCurrentDate(Date *pdate)
     pdate->nDay = ptm->tm_mday;
 }
 
-bool HostSavePreferences(void *pv, int cb)
-{
-    LOG() << HostHelpers::GetPrefsFilename();
-
-    FILE *pf = fopen(HostHelpers::GetPrefsFilename(), "wb");
-    if (pf == NULL) {
-        LOG() << "error opening preferences! " << errno;
-        return false;
-    }
-    if (fwrite(pv, cb, 1, pf) != 1) {
-        LOG() << "error writing preferences! " << errno;
-        fclose(pf);
-        return false;
-    }
-    fclose(pf);
-    return true;
-}
-
-int HostLoadPreferences(void *pv, int cb)
-{
-    FILE *pf = fopen(HostHelpers::GetPrefsFilename(), "rb");
-    if (pf == NULL) {
-        return -1;
-    }
-
-    // Read prefs
-
-    int cbRead = (int)fread(pv, 1, cb, pf);
-    fclose(pf);
-    return cbRead;
-}
-
 const char *HostGetMainDataDir()
 {
     return HostHelpers::GetMainDataDir();
@@ -780,6 +787,11 @@ const char *HostGetMainDataDir()
 const char *HostGetSaveGamesDir()
 {
     return HostHelpers::GetSaveGamesDir();
+}
+
+const char *HostGetPrefsFilename()
+{
+    return HostHelpers::GetPrefsFilename();
 }
 
 void HostNotEnoughMemory(bool fStorage, dword cbFree, dword cbNeed)

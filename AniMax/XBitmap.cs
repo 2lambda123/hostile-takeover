@@ -139,10 +139,12 @@ namespace SpiffCode
                         strFile);
             }
             m_strFileName = strFile;
-            m_bm = new Bitmap(strFile);
+            using (var bmTemp = new Bitmap(strFile))
+                m_bm = new Bitmap(bmTemp);
 			string strPath = Path.GetDirectoryName(strFile);
 			string strFileName = Path.GetFileName(strFile);
-			m_bmBlack = new Bitmap(Path.Combine(strPath, "black_" + strFileName));
+            using (var bmpTemp = new Bitmap(Path.Combine(strPath, "black_" + strFileName)))
+                m_bmBlack = new Bitmap(bmTemp);
         }
 
 		private void Load8(string strFileName, bool fUseFirstPaletteEntryAsTransparentColor) {
@@ -179,12 +181,15 @@ namespace SpiffCode
 			if (strFileName == null) {
 				strFileName = m_strFileName;
             }
-			m_bm.Save(strFileName);
+            if (!System.IO.File.Exists(strFileName))
+                m_bm.Save(strFileName);
 
             if (m_bmBlack != null) {
                 string strPath = Path.GetDirectoryName(strFileName);
                 string strFileT = Path.GetFileName(strFileName);
-                m_bmBlack.Save(Path.Combine(strPath, "black_" + strFileT));
+                string strBlackPath = Path.Combine(strPath, "black_" + strFileT);
+                if (!System.IO.File.Exists(strBlackPath))
+                    m_bmBlack.Save(strBlackPath);
             }
 
 			m_fDirty = false;

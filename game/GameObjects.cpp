@@ -609,7 +609,7 @@ bool SurfaceDecalGob::Init(WCoord wx, WCoord wy, dword ff, const char *pszBitmap
 	m_wy = wy;
 
 	if (pszBitmap != NULL) {
-		m_ptbm = GetSharedTBitmap((char *)pszBitmap);
+		m_ptbm = CreateTBitmap((char *)pszBitmap);
 		if (m_ptbm == NULL)
 			return false;
 	} else {
@@ -756,7 +756,7 @@ bool SceneryGob::Init(WCoord wx, WCoord wy, dword ff, const char *pszBitmap, con
 	m_wx = wx;
 	m_wy = wy;
 
-	m_ptbm = GetSharedTBitmap((char *)pszBitmap);
+	m_ptbm = CreateTBitmap((char *)pszBitmap);
 	if (m_ptbm == NULL)
 		return false;
 
@@ -777,7 +777,7 @@ bool SceneryGob::LoadState(Stream *pstm)
 		return false;
 	char szBitmap[kcbFilename];
 	pstm->ReadString(szBitmap, sizeof(szBitmap));
-	m_ptbm = GetSharedTBitmap(szBitmap);
+	m_ptbm = CreateTBitmap(szBitmap);
 	return Gob::LoadState(pstm);
 }
 
@@ -785,7 +785,7 @@ bool SceneryGob::SaveState(Stream *pstm)
 {
 	pstm->WriteByte(knVerSceneryGobState);
 	char szBitmap[kcbFilename];
-	FindSharedTBitmapFilename(m_ptbm, szBitmap, sizeof(szBitmap));
+    strncpyz(szBitmap, m_ptbm->GetFileName(), kcbFilename);
 	pstm->WriteString(szBitmap);
 	return Gob::SaveState(pstm);
 }
@@ -996,15 +996,15 @@ static TBitmap *s_aptbmArrows[9];
 
 void LoadArrows()
 {
-	s_aptbmArrows[0] = LoadTBitmap("arrow0.tbm");
-	s_aptbmArrows[1] = LoadTBitmap("arrow1.tbm");
-	s_aptbmArrows[2] = LoadTBitmap("arrow2.tbm");
-	s_aptbmArrows[3] = LoadTBitmap("arrow3.tbm");
-	s_aptbmArrows[4] = LoadTBitmap("arrow4.tbm");
-	s_aptbmArrows[5] = LoadTBitmap("arrow5.tbm");
-	s_aptbmArrows[6] = LoadTBitmap("arrow6.tbm");
-	s_aptbmArrows[7] = LoadTBitmap("arrow7.tbm");
-	s_aptbmArrows[8] = LoadTBitmap("x.tbm");
+	s_aptbmArrows[0] = CreateTBitmap("arrow0.png");
+	s_aptbmArrows[1] = CreateTBitmap("arrow1.png");
+	s_aptbmArrows[2] = CreateTBitmap("arrow2.png");
+	s_aptbmArrows[3] = CreateTBitmap("arrow3.png");
+	s_aptbmArrows[4] = CreateTBitmap("arrow4.png");
+	s_aptbmArrows[5] = CreateTBitmap("arrow5.png");
+	s_aptbmArrows[6] = CreateTBitmap("arrow6.png");
+	s_aptbmArrows[7] = CreateTBitmap("arrow7.png");
+	s_aptbmArrows[8] = CreateTBitmap("x.png");
 }
 
 void FreeArrows()

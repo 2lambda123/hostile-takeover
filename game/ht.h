@@ -118,7 +118,7 @@ class CommandQueueViewer;
 #include "mpshared/netmessage.h"
 #include "game/dragrect.h"
 #include "base/thread.h"
-//#include "yajl/wrapper/jsontypes.h"
+#include "yajl/wrapper/jsontypes.h"
 
 namespace wi {
 
@@ -265,6 +265,8 @@ typedef word CacheHandle; // hc
 #define secBuilderGob secCode12
 #define secDrm secCode16
 #define secBtTransport secCode17
+#define secTexAtlasMgr secCode13
+#define secPreferences secCode9
 
 // Performance options
 
@@ -302,45 +304,11 @@ const int knDecreasedDamagePercent = 90;
 
 // Color type
 
-typedef word Color; // clr
-
-// Dib bitmap
-
-#define kfDibFreeMem 0x0001
-#define kfDibBackWindow 0x0002
-#define kfDibWantScrolls 0x0004
-
-class Rect;
-class UpdateMap;
-class DibBitmap // bm
-{
-public:
-	DibBitmap() secDibBitmap;
-	virtual ~DibBitmap() secDibBitmap;
-	bool Init(byte *pb, int cx, int cy) secDibBitmap;
-	virtual byte *GetBits() secDibBitmap;
-	virtual void Clear(Color clr) secDibBitmap;
-	virtual void Fill(int x, int y, int cx, int cy, Color clr) secDibBitmap;
-	virtual void Shadow(int x, int y, int cx, int cy) secDibBitmap;
-	virtual void GetSize(Size *psiz) secDibBitmap;
-	virtual int GetRowBytes() secDibBitmap;
-	virtual void DrawLine(short x1, short y1, short x2, short y2, Color clr) secDibBitmap;
-	virtual void Blt(DibBitmap *pbmSrc, Rect *prcSrc, int xDst, int yDst) secDibBitmap;
-	virtual void BltTiles(DibBitmap *pbmSrc, UpdateMap *pupd, int yTopDst) secDibBitmap;
-    virtual void Scroll(Rect *prcSrc, int xDst, int yDst);
-	virtual DibBitmap *Suballoc(int yTop, int cy) secDibBitmap;
-	word GetFlags() {
-		return m_wf;
-	}
-
-protected:
-	word m_wf;
-	Size m_siz;
-	byte *m_pb;
-	dword m_cb;
-	int m_cbRow;
-};
-DibBitmap *CreateDibBitmap(byte *pb, int cx, int cy) secDibBitmap;
+typedef struct {
+    byte r;
+    byte g;
+    byte b;
+} Color; // clr
 
 // Network stuff
 
@@ -670,14 +638,6 @@ public:
 	{
 		return bottom - top;
 	}
-};
-
-// Palette
-
-struct Palette // pal
-{
-    word cEntries;
-    byte argb[1][3];
 };
     
 } // namespace wi
@@ -1093,134 +1053,153 @@ struct TBitmapHeader // tbh
 	TBitmapEntry atbe[1];
 };
 
-// Abstract base bitmap class so TBitmaps and RawBitmaps can be used
-// interchangeably in certain basic situations
+// DibBitmap
 
-class HtBitmap
+#define kfDibFreeMem 0x0001
+#define kfDibBackWindow 0x0002
+#define kfDibWantScrolls 0x0004
+
+class SubBitmap;
+class DibBitmap
 {
 public:
-	virtual ~HtBitmap() secRawBitmap;
-	virtual bool Init(char *pszFn) = 0;
-	virtual void BltTo(class DibBitmap *pbmDst, int xDst, int yDst, Rect *prcSrc = NULL) = 0;
-	virtual void BltTo(class DibBitmap *pbmDst, int xDst, int yDst, Side side, Rect *prcSrc = NULL) = 0;
-	virtual void GetSize(Size *psiz) = 0;
-};
+	DibBitmap() secDibBitmap;
+	virtual ~DibBitmap() secDibBitmap;
 
-#define kfTbCloseFile 1
-#define kfTbShared 2
+    virtual bool Init(char *pszFn) secDibBitmap;
+    virtual bool Init(dword *pb, int cx, int cy) secDibBitmap;
 
-#define kcCopyBy4Procs 32
-#define kcColoredSides 6
-class TBitmap : public HtBitmap
-{
-public:
-	TBitmap() secTBitmap;
+    virtual void Blt(DibBitmap *pbmSrc, Rect *prcSrc, int xDst, int yDst) secDibBitmap;
+    virtual void BltTiles(DibBitmap *pbmSrc, UpdateMap *pupd, int yTopDst) secDibBitmap;
+    virtual void GetSize(Size *psiz) secDibBitmap;
+    virtual void Fill(int x, int y, int cx, int cy, Color clr) secDibBitmap;
+    virtual void Fill(int x, int y, int cx, int cy, dword clr) secDibBitmap;
+    virtual void FillTo(class DibBitmap *pbmDst, int xDst, int yDst,
+        int cxDst, int cyDst, int xOrigin = 0, int yOrigin = 0) secDibBitmap;
+    virtual void Clear(Color clr) secDibBitmap;
+    virtual void Shadow(int x, int y, int cx, int cy) secDibBitmap;
+    virtual void DrawLine(short x1, short y1, short x2, short y2, Color clr) secDibBitmap;
+    virtual void Scroll(Rect *prcSrc, int xDst, int yDst) secDibBitmap;
 
-	bool Init(File *pfil, word ib) secTBitmap;
-	void BltTo(int itbm, class DibBitmap *pbmDst, int xDst, int yDst, Side side = ksideNeutral, Rect *prcSrc = NULL) secTBitmap;
-	void GetSize(int itbm, Size *psiz) secTBitmap;
-	void FillTo(int itbm, class DibBitmap *pbmDst, int xDst, int yDst,
-            int cxDst, int cyDst, int xOrigin = 0, int yOrigin = 0) secTBitmap;
+    virtual SubBitmap *Suballoc(int yTop, int cy) secDibBitmap;
+    virtual SubBitmap *Suballoc(Rect rc) secDibBitmap;
 
-	int GetBaseline() {
-		return (int)m_atbe[0].yBaseline;
+    word GetFlags() {
+        return m_wf;
+    }
+    void SetFlags(word wf) {
+		m_wf = wf;
 	}
 
-	int GetBaseline(int itbm) {
-		Assert(itbm >= 0 && itbm < m_ctbm);
-		return (int)m_atbe[itbm].yBaseline;
-	}
-
-	void SetShared() {
-		m_wf |= kfTbShared;
-	}
-
-	void ClearShared() {
-		m_wf &= ~kfTbShared;
-	}
-
-	static bool InitClass() secTBitmap;
-	static void ExitClass() secTBitmap;
-
-	// HtBitmap overrides
-
-	virtual ~TBitmap() secTBitmap;
-	virtual bool Init(char *pszFn) secTBitmap;
-	virtual void BltTo(class DibBitmap *pbmDst, int xDst, int yDst, Rect *prcSrc = NULL) secTBitmap;
-	virtual void BltTo(class DibBitmap *pbmDst, int xDst, int yDst, Side side, Rect *prcSrc = NULL) secTBitmap;
-	virtual void GetSize(Size *psiz) secTBitmap;
+#if defined(SDL)
+    SDL_Texture *Texture() { return m_texture; }
+    int Width() { return m_cx; }
+    int Height() { return m_cy; }
+#endif
 
 private:
-	byte *GetCompiledBits(int itbm, bool fOdd) secTBitmap;
-	static void MakeSideCodeMapping(Color *aclr, dword *mpscaiclrSide) secTBitmap;
-    void BltToScan(byte *pbDraw, int cx, int cy, DibBitmap *pbmDst,
-            int xDst, int yDst, Side side, Rect *prcSrc);
+#if defined(SDL)
+    SDL_Texture *m_texture;
+    SDL_PixelFormat *m_ppfmt;
+#endif
+    word m_wf;
+    int m_cx;
+    int m_cy;
 
-	File *m_pfil;
-	word m_ibtbh;
-	word m_wf;
-	int m_ctbm;
-	TBitmapEntry *m_atbe;
-	CacheHandle *m_ahc;
-
-public:
-	static dword *s_ampscaiclrSide[kcColoredSides];
+    friend class TBitmap;
 };
-TBitmap *LoadTBitmap(char *pszFn) secTBitmap;
-void FreeSharedTBitmaps() secTBitmap;
-TBitmap *GetSharedTBitmap(char *pszFn) secTBitmap;
-void FindSharedTBitmapFilename(TBitmap *ptbm, char *psz, int cb) secTBitmap;
+DibBitmap *LoadDibBitmap(char *pszFn) secDibBitmap;
+DibBitmap *CreateDibBitmap(dword *pb, int cx, int cy) secDibBitmap;
 
-// For bltting raw bitmaps in a non-clipped, streamed manner
-
-class RawBitmap : public HtBitmap // rbm
+class SubBitmap : public DibBitmap
 {
 public:
-	RawBitmap() secRawBitmap;
+    SubBitmap(Rect rc) : m_rc(rc) { }
+    ~SubBitmap() {}
 
-	// HtBitmap overrides
-
-	virtual ~RawBitmap() secRawBitmap;
-	virtual bool Init(char *pszFn) secRawBitmap;
-	virtual void BltTo(class DibBitmap *pbmDst, int xDst, int yDst, Rect *prcSrc = NULL) secRawBitmap;
-	virtual void BltTo(class DibBitmap *pbmDst, int xDst, int yDst, Side side, Rect *prcSrc = NULL) secRawBitmap;
-	virtual void GetSize(Size *psiz) secRawBitmap;
-
-public:
-	File *m_pfil;
-	int m_cx;
-	int m_cy;
+    void Blt(DibBitmap *pbmSrc, Rect *prcSrc, int xDst, int yDst);
+    void Fill(int x, int y, int cx, int cy, Color clr);
+    void Clear(Color clr);
+    void DrawLine(short x1, short y1, short x2, short y2, Color clr);
+private:
+    Rect m_rc;
 };
-RawBitmap *LoadRawBitmap(char *pszFn) secRawBitmap;
 
-// Font / Text output
+// Texture bitmap
+// Stores information about a bitmap in a texture atlas
 
-struct FontHeader // fnth
+class TBitmap
 {
-	word cy;
-	byte acxChar[256];
-	word mpchibsd[256];
-	ScanData asd[1];
+public:
+    TBitmap() secTBitmap;
+    ~TBitmap() secTBitmap;
+
+    bool Init(char *pszFn, int x, int y, int cx, int cy, int cxOrig, int cyOrig,
+        int ccLeft, int ccTop, int *anSideMap) secTBitmap;
+
+    int GetBaseline() secTBitmap;
+    int GetAtlas(Side side) secTBitmap;
+    void GetTextureSize(Size *psiz) secTBitmap;
+    void GetSize(Size *psiz) secTBitmap;
+    void GetPosition(Point *ppos) secTBitmap;
+
+    void BltTo(class DibBitmap *pimgDst, int xDst, int yDst, Rect *prcSrc = NULL) secTBitmap;
+    void BltTo(class DibBitmap *pimgDst, int xDst, int yDst, Side side, Rect *prcSrc = NULL) secTBitmap;
+    void FillTo(class DibBitmap *pimgDst, int xDst, int yDst,
+        int cxDst, int cyDst, int xOrigin = 0, int yOrigin = 0) secTBitmap;
+
+    char *GetFileName() { return m_pszFn; }
+
+    int ClippedLeft() { return m_ccLeft; }
+    int ClippedTop() { return m_ccTop; }
+
+    int Width() { return m_cxOrig; }
+    int Height() { return m_cyOrig; }
+
+private:
+    DibBitmap *Flash() secTBitmap;
+    
+    int m_x, m_y, m_cx, m_cy;
+    int m_cxOrig, m_cyOrig;
+    int m_ccLeft, m_ccTop; // clipped
+    int *m_anSideMap;
+    char *m_pszFn;
 };
+TBitmap *CreateTBitmap(char *pszName) secTBitmap;
+
+// Texture Atlas Manager
+
+class TexAtlasMgr
+{
+public:
+    TexAtlasMgr() secTexAtlasMgr;
+    ~TexAtlasMgr() secTexAtlasMgr;
+
+    bool Init() secTexAtlasMgr;
+    TBitmap *CreateTBitmap(char *pszName) secTexAtlasMgr;
+    void BltTo(TBitmap *ptbmSrc, DibBitmap *pbmDst, int xDst, int yDst, Side side, Rect *prcSrc) secTexAtlasMgr;
+
+private:
+    int m_natlases;
+    json::JsonMap *m_json;
+    DibBitmap **m_pbmAtlases;
+};
+
+// Font
+
+#include <map>
+typedef std::map<std::string, TBitmap *> FontMap;
 
 class Font // fnt
 {
 public:
-	Font() secFont;
-	~Font() secFont;
+	Font();
+	~Font();
 
-	bool Load(char *pszFont) secFont;
+	bool Load(char *pszFont);
 
 	int GetHeight() {
-		return BigWord(m_pfnth->cy);
-	}
-
-	void SetGlyphOverlap(int nGlyphOverlap) {
-		m_nGlyphOverlap = nGlyphOverlap;
-	}
-
-	void SetLineOverlap(int nLineOverlap) {
-		m_nLineOverlap = nLineOverlap;
+        return m_cy;
 	}
 
 	int GetGlyphOverlap() {
@@ -1231,29 +1210,30 @@ public:
 		return m_nLineOverlap;
 	}
 
-	int GetTextExtent(const char *psz) secFont;
-	int GetTextExtent(const char *psz, int cch) secFont;
+	int GetTextExtent(const char *psz);
+	int GetTextExtent(const char *psz, int cch);
 	int DrawText(DibBitmap *pbm, char *psz, int x, int y, int cch = -1,
-            dword *mpscaiclr = NULL) secFont;
+            Color *pclr = NULL);
 	void DrawText(DibBitmap *pbm, char *psz, int x, int y, int cx,
-            int cy, bool fEllipsis = false) secFont;
+            int cy, bool fEllipsis = false);
     void DrawTextWithEllipsis(DibBitmap *pbm, char *psz, int cch,
             int x, int y, int cx, bool fForce = false);
-	int CalcMultilineHeight(char *psz, int cxMultiline) secFont;
-	int CalcBreak(int cx, char **psz, bool fChop = true) secFont;
+	int CalcMultilineHeight(char *psz, int cxMultiline);
+	int CalcBreak(int cx, char **psz, bool fChop = true);
 
 private:
-	char *FindNextNonBreakingChar(char *psz) secFont;
+	char *FindNextNonBreakingChar(char *psz);
+    TBitmap *GetTBitmap(char sz);
+    bool TBitmapExists(char sz);
 
-	FileMap m_fmap;
-	FontHeader *m_pfnth;
-	byte **m_mpchpbCodeEven;
-	byte **m_mpchpbCodeOdd;
 	int m_nGlyphOverlap;
 	int m_nLineOverlap;
     int m_cxEllipsis;
+    int m_cy;
+    FontMap m_map;
+    TBitmap *m_ptbmDefault;
 };
-Font *LoadFont(char *pszFont) secFont;
+Font *LoadFont(char *pszFont);
 
 struct TileSetHeader // tseth
 {
@@ -1313,11 +1293,12 @@ private:
 	word m_wf;
 
 public:
-	byte **m_apbTileData;
+	dword **m_apbTileData;
 	word *m_pwMapData;
 	int m_ctx;
 	int m_cty;
-	byte **m_apbDrawMap;
+    DibBitmap *m_pbmDraw;
+    DibBitmap **m_tiles;
 };
 TileMap *LoadTileMap(char *pszFn, Size *psizPlayfield) secTileMap;
 
@@ -1409,6 +1390,14 @@ const Direction kdirNW = 7;
 
 typedef int Direction16; // dir16
 const Direction16 kdir16Invalid = -1;
+const Direction16 kdir16N = 0;
+const Direction16 kdir16NE = 2;
+const Direction16 kdir16E = 4;
+const Direction16 kdir16SE = 6;
+const Direction16 kdir16S = 8;
+const Direction16 kdir16SW = 10;
+const Direction16 kdir16W = 12;
+const Direction16 kdir16NW = 14;
 
 // TerrainMap
 
@@ -1577,17 +1566,19 @@ private:
 
 struct FrameData // frmd
 {
-	byte ibm;			// bitmap index
-	byte ibm2;			// second bitmap index
-	byte cHold;			// frame delay
-	char xOrigin;		// x offset for drawing
-	char yOrigin;		// y offset for drawing
-	char xOrigin2;		// x offset for drawing second bitmap
-	char yOrigin2;		// y offset for drawing second bitmap
-	byte bCustomData1;	// first custom data value
-	byte bCustomData2;	// second custom data value
+    char szName[64];       // name of bm
+    char szName2[64];      // name of bm2
+	word ibm;			   // bitmap index
+	word ibm2;			   // second bitmap index
+	byte cHold;			   // frame delay
+	char xOrigin;		   // x offset for drawing
+	char yOrigin;		   // y offset for drawing
+	char xOrigin2;		   // x offset for drawing second bitmap
+	char yOrigin2;		   // y offset for drawing second bitmap
+	byte bCustomData1;	   // first custom data value
+	byte bCustomData2;	   // second custom data value
 };
-#define kcbFrameData 9
+#define kcbFrameData 139
 
 class StripData // stpd
 {
@@ -1625,8 +1616,8 @@ public:
 
 struct AnimationFileHeader // anih
 {
-	word cstpd;			// count of StripData structures
-	word aoffStpd[1];	// array of offsets to StripData structures
+	dword cstpd;        // count of StripData structures
+	dword aoffStpd[1];  // array of offsets to StripData structures
 };
 
 class AnimationData // anid
@@ -1647,9 +1638,10 @@ public:
 	int GetFrameDelay(int nStrip, int nFrame) secAnimation;
 
 private:
-	TBitmap *m_ptbm;
+	TBitmap **m_aptbm;
 	FileMap m_fmap;
 	AnimationFileHeader *m_panih;
+    int m_ctbm;
 };
 AnimationData *LoadAnimationData(const char *pszAniName) secAnimation;
 
@@ -1811,10 +1803,11 @@ enum {
 
 #define kcevtPostMax 20
 
-#define kfRedrawDirty 1
-#define kfRedrawMax 2
-#define kfRedrawBeforeTimer 4
-#define kfRedrawBeforeInput 8
+#define kfRedrawDirty 0x01
+#define kfRedrawMax 0x02
+#define kfRedrawBeforeTimer 0x04
+#define kfRedrawBeforeInput 0x08
+#define kfRedrawPaintSkipped 0x10
 
 struct FlickVector {
     int GetMagnitude() {
@@ -1867,6 +1860,7 @@ public:
 	}
 
 private:
+    bool CheckPaintFPS() secEventMgr;
     void UpdatePenHistory(Event *pevt) secEventMgr;    
     bool QueryPenHistory(int nPen, long t, Point *ppt);
 
@@ -2297,8 +2291,6 @@ class MultiFormMgr;
 class InputUIForm;
 class Form;
 class Chatter;
-struct PreferencesV100;
-struct PreferencesV101;
 class Game // game
 {
 public:
@@ -2337,7 +2329,6 @@ public:
 	bool AskObserveGame() secGame;
 	bool CheckDatabaseVersion(const char *pszDir, char *pszPdb,
             bool fUpwardCompatOK) secGame;
-    void GamePause(bool fpause);
 
 	// ModeMatch helpers
 
@@ -2379,15 +2370,13 @@ public:
 private:
 	bool CheckMemoryAvailable() secGame;
 	void Suspend() secGame;
-	void LoadPreferences() secGame;
-	bool LoadPreferences2() secGame;
-	bool LoadPreferencesV100(PreferencesV100 *pprefsV100);
-	bool LoadPreferencesV101(PreferencesV101 *pprefsV101);
+	bool LoadPreferences() secGame;
 	bool InitDisplay(int imm) secGame;
 	int FindBestModeMatch2(int nDepthData, int nSizeData, int nDepthMode, int cxWidthModeMin, int cxWidthModeMax, byte bfMatch) secGame;
 	int FindBestModeMatch(int nSizeDataAbove) secGame;
 	void AddModeMatches(int nDepthData, int nSizeData, int nDepthOrGreater, int cxWidthOrGreater) secGame;
 	bool LoadGameData() secGame;
+    bool InitTexAtlasMgr() secGame;
 	bool InitCoordMappingTables() secGame;
 	bool InitSimulation(Stream *pstm, char *pszLevel, word wfRole,
             dword gameid, Chatter *chatter);
@@ -2433,7 +2422,6 @@ public:
             MissionIdentifier *pmiid = NULL) secShell;
 	int PlayGame(PlayMode pm, MissionIdentifier *pmiid, Stream *pstm,
             int nRank) secShell;
-	void SetPalette() secShell;
 
 private:
     bool DoPlay();
@@ -2442,11 +2430,6 @@ private:
 	bool PlaySinglePlayer(const PackId *ppackid) secShell;
 	bool PlayMultiplayer(const PackId *ppackid) secShell;
     void DownloadMissionPack() secShell;
-
-	FileMap m_fmapPalette;
-	FileMap m_fmapShadowMap;
-	Palette *m_ppal;
-	byte *m_mpiclriclrShadow;
 };
 extern Shell gshl;
 
@@ -2673,8 +2656,6 @@ private:
 #define kfFrmDoModal 0x02
 #define kfFrmVisible 0x04
 #define kfFrmPenInside 0x08
-#define kfFrmHasPalette 0x10
-#define kfFrmHasShadowMap 0x20
 #define kfFrmScaleCoords 0x40
 #define kfFrmAutoTakedown 0x80
 #define kfFrmTranslucent 0x100
@@ -2770,8 +2751,6 @@ protected:
 	Sfx m_sfxShow;
 	Sfx m_sfxHide;
 	Control *m_apctl[kcControlsMax];
-	FileMap m_fmapPalette;
-	FileMap m_fmapShadowMap;
 	int m_iclrBack;
 	void* m_pUserData;
 
@@ -2870,9 +2849,11 @@ private:
 	void UpdateLabels();
 
 	bool m_fLassoSelection;
+    bool m_fMuteSound;
 	long m_tGameSpeed;
 	word m_wfHandicap;
     double m_nScrollSpeed;
+    int m_cmsMaxFPS;
 };
 
 // Control
@@ -3109,7 +3090,7 @@ private:
 	void CalcRect() secEcom;
 
 	int m_cchCur;
-	dword m_aiclrEcom[4];
+	Color m_aclrEcom[4];
 	long m_ctPrevTime;
 };
 
@@ -3394,10 +3375,10 @@ public:
 	virtual bool Init(Form *pfrm, IniReader *pini, FindProp *pfind) secBitmapControl;
 	virtual void OnPaint(DibBitmap *pbm) secBitmapControl;
 
-	void SetBitmap(HtBitmap *phtbm) secBitmapControl;
+	void SetBitmap(TBitmap *ptbm) secBitmapControl;
 
 private:
-	HtBitmap *m_phtbm;
+	TBitmap *m_ptbm;
 };
 
 // Slider Control
@@ -3484,14 +3465,16 @@ private:
 	int m_yOff;
 	TCoord m_ctx;
 	TCoord m_cty;
-	byte *m_pbTileData;
+	dword *m_pbTileData;
 	word *m_pwTileMap;
 	int m_cbRowBytes;
 	byte *m_pbFogMap;
-	byte m_clrWhite;
-	byte m_clrBlack;
-	byte m_clrGalaxite;
-	byte m_aclrSide[kcSides];
+    byte *m_pbTrMap;
+	Color m_clrWhite;
+	Color m_clrBlack;
+	Color m_clrGalaxite;
+    Color m_clrWall;
+	Color m_aclrSide[kcSides];
 };
 
 // Pip Meter Control
@@ -5365,14 +5348,6 @@ public:
 		return m_ptmap;
 	}
 
-	Palette *GetPalette() {
-		return m_ppal;
-	}
-
-	byte *GetShadowMap() {
-		return m_mpiclriclrShadow;
-	}
-
 	FogMap *GetFogMap() {
 		return m_pfogm;
 	}
@@ -5431,10 +5406,6 @@ private:
 	char m_szFileLevel[kcbFilename];
 	int m_nPlayersMin, m_nPlayersMax;
 	TileMap *m_ptmap;
-	Palette *m_ppal;
-	FileMap m_fmapPalette;
-	byte *m_mpiclriclrShadow;
-	FileMap m_fmapShadowMap;
 	FogMap *m_pfogm;
 	TerrainMap *m_ptrmap;
 	bool m_fInitialized;
@@ -6734,6 +6705,8 @@ public:
 	bool IsMobile() secUnitGob;
 	bool IsStandingOnActivator() secUnitGob;
 
+    virtual int GetIdleCountdown() secUnitGob;
+
 	bool HasAttackTarget() {
 		return m_gidTarget != kgidNull;
 	}
@@ -6832,7 +6805,7 @@ private:
 	UnitGob *FindValidTargetInArea(int nArea) secUnitGob;
 
 protected:
-	Direction m_dir, m_dirNext;
+	Direction16 m_dir, m_dirNext;
 	Gid m_gidTarget;
 	long m_tLastFire;
 	Message m_msgPending;
@@ -7067,6 +7040,10 @@ public:
 	virtual bool Fire(UnitGob *puntTarget, WCoord wx, WCoord wy, WCoord wdx, WCoord wdy) secInfantryGob;
 	virtual void Idle() secInfantryGob;
 
+    // MobileUnitGob overrides
+
+    virtual int GetIdleCountdown() secInfantryGob;
+
 	// StateMachine methods
 
 	virtual int ProcessStateMachineMessage(State st, Message *pmsg) secInfantryGob;
@@ -7086,6 +7063,10 @@ public:
 
 	virtual bool Fire(UnitGob *puntTarget, WCoord wx, WCoord wy, WCoord wdx, WCoord wdy) secInfantryGob;
 	virtual void Idle() secInfantryGob;
+
+    // MobileUnitGob overrides
+
+    virtual int GetIdleCountdown() secInfantryGob;
 
 	// StateMachine methods
 
@@ -8343,89 +8324,81 @@ bool DrmValidate() secDrm;
 // Preferences support
 //
 
-// Preferences structures change over time. They get backed up by HotSync.
-// By carefully versioning the structure HT can load older preference versions
-// successfully. Every prefs structure has a version; these are meant to be supported
-// versions of preferences; meaning HT will load older versions of each versioned prefs
-// structure. They are also sub-versioned by size; this allows us during development to
-// add / remove fields and not have HT crash because it is assuming the wrong thing.
-
-// prefs flags
-
-#define kfPrefSoundMuted 1 // must be 1 for compatibility with fMute
-#define kfPrefIgnoreBluetoothWarning 2
-
-// Preferences is stored in pack 2 alignment
-#pragma pack(push, 2)
-
-// The header necessary on all preferences structures
-
-struct PreferencesVersion
-{
-	dword dwVersion;
-	dword cbSize;
-};
-
-// The versions of preferences structures HT can successfully read
-// Use fixed size datatypes
-
-struct PreferencesV100 // prefs
-{
-	PreferencesVersion prefv;
-    char szUsername[kcbPlayerName];
-    char szPassword[kcbPlayerName];
-    char szToken[kcbTokenMax];
-    word fAnonymous;
-	word nYearLastRun;				// demo time check
-	word nMonthLastRun;
-	word nDayLastRun;
-	word nVolume;					// volume
-	word wfPrefs;
-	word wfPerfOptions;
-	word wfHandicap;				// Difficulty-affecting flags
-	int ctGameSpeed;				// game speed
-	word fLassoSelection;
-	short nHueOffset;				// HSL settings
-	short nSatMultiplier;
-	short nLumOffset;
-	word cxModeBest;				// Remember what mode / data is best. Check against in case config changes
-	word cyModeBest;
-	word nDepthModeBest;
-	word nDepthDataBest;
-	word nSizeDataBest;
-	word nDegreeOrientationBest;
-	word cxModeLast;				// Remember what mode / data was chosen
-	word cyModeLast;
-	word nDepthModeLast;
-	word nDepthDataLast;
-	word nSizeDataLast;
-	word nDegreeOrientationLast;
-	Key key;						// DRM key
-	short nDemoRank;
-#if defined(WIN) && !defined(CE)
-	short nScale;
-#endif
-    double nScrollSpeed;
-    char szAskURL[512];
-};
-
-struct PreferencesV101 : public PreferencesV100
-{
-    // md5 hash (16 bytes) to hex chars (32 bytes) plus zero terminator, rounded up to even number
-    char szDeviceId[34];
-};
-typedef PreferencesV101 Preferences;
-
-#pragma pack(pop)
-
 // The current version
 
-#define knVersionPreferencesV100 0x100
-#define knVersionPreferencesV101 0x101
-#define knVersionPreferences knVersionPreferencesV101
-extern Preferences gprefsInit;
-bool HostSavePreferences(void *pv, int cb) secHost;
-int HostLoadPreferences(void *pv, int cb) secHost;
+#define knVersionPreferencesV01 1
+#define knVersionPreferencesLatest knVersionPreferencesV01
+
+// Keys
+
+#define knPrefVersion "version"
+#define kszPrefUsername "username"
+#define kszPrefPassword "password"
+#define kszPrefToken "token"
+#define kfPrefAnonymous "anonymous"
+#define knPrefYearLastRun "year_last_run" // demo time check
+#define knPrefMonthLastRun "month_last_run"
+#define knPrefDayLastRun "day_last_run"
+#define kwfPrefPerfOptions "perf_options"
+#define knPrefVolume "volume" // in percent (0 - 100)
+#define kfPrefSoundMuted "sound_muted"
+#define kwfPrefHandicap "handicap" // Difficulty-affecting flags
+#define knPrefGameSpeed "game_speed"
+#define kfPrefLassoSelection "lassos_election"
+#define knPrefHueOffset "hue_offset" // HSL settings
+#define knPrefSatMultiplier "sat_multiplier"
+#define knPrefLumOffset "lum_offset"
+#define knPrefCxModeBest "cx_mode_best" // Remember what mode / data is best. Check against in case config
+#define knPrefCyModeBest "cy_mode_best"
+#define knPrefDepthModeBest "depth_mode_best"
+#define knPrefDepthDataBest "depth_data_best"
+#define knPrefSizeDataBest "size_data_best"
+#define knPrefDegreeOrientationBest "degree_orientation_best"
+
+#define knPrefCxModeLast "cx_mode_last" // Remember what mode / data was chosen
+#define knPrefCyModeLast "cy_mode_best"
+#define knPrefDepthModeLast "depth_mode_last"
+#define knPrefDepthDataLast "depth_data_last"
+#define knPrefSizeDataLast "size_data_last"
+#define knPrefDegreeOrientationLast "degree_orientation_last"
+
+#define kszPrefKey "key" // DRM key
+#define knPrefDemoRank "demo_rank"
+// #define knPrefScale "scale"
+#define knPrefScrollSpeed "scroll_speed"
+// #define kfPrefIgnoreBluetoothWarning "ignore_bluetooth_warning"
+#define kszPrefAskUrl "ask_url"
+#define kszPrefDeviceId "did"
+#define knPrefUpdateDisplay "update_display"
+
+class Preferences
+{
+public:
+    Preferences() secPreferences;
+    ~Preferences() secPreferences;
+
+    bool InitFromFile() secPreferences;
+    bool InitFromDeafults() secPreferences;
+
+    bool Save() secPreferences;
+    const char *GetString(const char *key) secPreferences;
+    int GetInteger(const char *key) secPreferences;
+    float GetFloat(const char *key) secPreferences;
+    bool GetBool(const char *key) secPreferences;
+
+    void Set(const char *key, const char *psz) secPreferences;
+    void Set(const char *key, int n) secPreferences;
+    void Set(const char *key, float n) secPreferences;
+    void Set(const char *key, bool f) secPreferences;
+
+private:
+    json::JsonMap *m_pmap;
+    char *m_pszJson;
+};
+Preferences *PrefsFromFile() secPreferences;
+Preferences *PrefsFromDefaults() secPreferences;
+
+extern Preferences *gpprefs;
 
 // Our in-game MessageBox
 
@@ -8500,13 +8473,14 @@ extern int gnHueOffset;
 extern int gnSatMultiplier;
 extern int gnLumOffset;
 extern int gnDemoRank;
-extern double gnScrollSpeed;
+extern float gnScrollSpeed;
 extern char gszAskURL[512];
 extern char gszDeviceId[34];
 extern int gtGameSpeed;
 extern AnimationData *g_panidMoveTarget;
 extern UpdateMap *gpupdSim;
 extern Color *gaclrFixed;
+extern Color gaclr24bpp[];
 extern Color gaclr8bpp[];
 extern Color gaclr4bpp[];
 extern byte gmpDistFromDxy[10][10];
@@ -8574,6 +8548,8 @@ extern int gnMPPos;
 #endif
 extern char *gpszDataDir;
 extern bool gfIgnoreBluetoothWarning;
+extern TexAtlasMgr *gptam;
+extern int gcmsDisplayUpdate;
 
 inline Color GetColor(int iclr) {
 	return gaclrFixed[iclr];
@@ -8624,15 +8600,15 @@ bool FormDragger(Form *pfrm, Event *pevt) secForm;
 bool HostMultiplayerGame() secMultiplayer;
 bool JoinOrHostMultiplayerGame(const PackId *ppackid) secMultiplayer;
 Direction TurnToward(Direction dirTo, Direction dirFrom) secMisc;
+Direction16 TurnToward16(Direction16 dirTo, Direction16 dirFrom) secMisc;
 int CalcCreditsShare(Player *pplr) secStructures;
 void DrawTileMap(byte **ppbMap, int ctx, int cty, byte *pbDst, int cbDstStride, int cxLeftTile, int cyTopTile, int cxRightTile, int cyBottomTile, int ctxInside, int ctyInside, int cxTile, int cyTile) secTileMap;
 FormMgr *CreateFormMgr(DibBitmap *pbm) secFormMgr;
 void ShadowHelper(DibBitmap *pbm, UpdateMap *pupd, Rect *prc) secForm;
 void FillHelper(DibBitmap *pbm, UpdateMap *pupd, Rect *prc, Color clr) secForm;
-void BltHelper(DibBitmap *pbm, HtBitmap *phtbm, UpdateMap *pupd, int xDst, int yDst) secForm;
+void BltHelper(DibBitmap *pbm, TBitmap *ptbm, UpdateMap *pupd, int xDst, int yDst) secForm;
 void RgbToHsl(byte bR, byte bG, byte bB, word *pnH, word *pnS, word *pnL) secMisc;
 void HslToRgb(word nH, word nS, word nL, byte *pbR, byte *pbG, byte *pbB) secMisc;
-void SetHslAdjustedPalette(Palette *ppal, short nHueOffset, short nSatMultiplier, short nLumOffset) secMisc;
 UnitConsts *GetUnitConsts(GobType gt) secGob;
 Sfx SfxFromCategory(SfxCategory sfxc) secMisc;
 bool ParseNumber(char **ppsz, int *pn) secTrigger;
@@ -8644,7 +8620,7 @@ bool ParseString(char **ppsz, char *psz) secTrigger;
 SideMask GetSideMaskFromCaSideMask(Side sideCur, word wfCaSideMask) secTrigger;
 int GetPlayersListFromCaSideMask(Side sideCur, word wfMask, Player **applr) secTrigger;
 void Ecom(int nCharFrom, int nCharTo, char *pszMessage, int nBackground, bool fMore) secEcom;
-bool DoModalGameOptionsForm(Palette *ppal, bool fInGame) secGameOptionsForm;
+bool DoModalGameOptionsForm(bool fInGame) secGameOptionsForm;
 bool ShowDownloadMissionPackForm(PackId *ppackid);
 bool DownloadMissionPack(const PackId *ppackid, const char *pszTitle,
         bool fPlayButton);
@@ -8661,6 +8637,7 @@ void FindNearestFreeTile(TCoord tx, TCoord ty, WPoint *pwpt, byte bf = kbfStruct
 void GetPrerequisiteString(char *psz, UnitConsts *puntc) secUnitGob;
 void BringInBounds(WCoord *pwx, WCoord *pwy) secMisc;
 Direction DirectionFromLocations(TCoord txOld, TCoord tyOld, TCoord txNew, TCoord tyNew) secTerrainMap;
+Direction16 Direction16FromLocations(TCoord txOld, TCoord tyOld, TCoord txNew, TCoord tyNew) secTerrainMap;
 int RadiusFromUnitCount(int cUnits) secMisc;
 void MoveUnitsToArea(MobileUnitGob **apmunt, int cpmunt, TRect *ptrc) secTrigger;
 void AddPointToLassoSelection(WPoint wpt) secSimUIForm;
@@ -8795,6 +8772,7 @@ void HostMessageBox(TCHAR *pszFormat, ...) secHost;
 Display *HostCreateDisplay() secDisplay;
 bool HostIsPenDown() secHost;
 const char *HostGetMainDataDir() secHost;
+const char *HostGetPrefsFilename() secHost;
 void HostSuspendModalLoop(DibBitmap *pbm) secHost;
 void HostNotEnoughMemory(bool fStorage, dword cbFree, dword cbNeed) secHost;
 bool HostGetOwnerName(char *pszBuff, int cb, bool fShowError) secHost;
@@ -8851,10 +8829,16 @@ void HostGetSilkRect(int irc, Rect *prc) secHost;
 const word kfOfRead = 0x0001;		// same as "rb"
 const word kfOfWrite = 0x0002;		// same as "wb"
 
+#define kfSeekSet 0
+#define kfSeekCur 1
+#define kfSeekEnd 2
+
 FileHandle HostOpenFile(const char *pszFilename, word wf) secHost;
 void HostCloseFile(FileHandle hf) secHost;
-dword HostWriteFile(FileHandle hf, void *pv, dword cb) secHost;
-dword HostReadFile(FileHandle hf, void *pv, dword cb) secHost;
+dword HostWriteFile(void *pv, dword c, dword cb, FileHandle hf) secHost;
+dword HostReadFile(void *pv, dword c, dword cb, FileHandle hf) secHost;
+dword HostSeekFile(FileHandle hf, int off, int nOrigin) secHost;
+dword HostTellFile(FileHandle hf) secHost;
 
 // Save game
 

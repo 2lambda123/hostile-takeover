@@ -11,9 +11,9 @@ char *LRInfantryGob::GetName()
 }
 #endif
 
-static int s_anFiringStripIndices[8] = { 1, 2, 3, 4, 5, 6, 7, 8 };
-static int s_anMovingStripIndices[8] = { 17, 18, 19, 20, 21, 22, 23, 24 };
-static int s_anIdleStripIndices[8] = { 9, 10, 11, 12, 13, 14, 15, 16 };
+static int s_anFiringStripIndices[16] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
+static int s_anMovingStripIndices[16] = { 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48 };
+static int s_anIdleStripIndices[16] = { 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32 };
 
 bool LRInfantryGob::InitClass(IniReader *pini)
 {
@@ -83,13 +83,13 @@ void LRInfantryGob::Idle()
 	case 0:
 		m_dir--;
 		if (m_dir < 0)
-			m_dir = 7;
+			m_dir = 15;
 		StartAnimation(&m_ani, m_pmuntc->anIdleStripIndices[m_dir], 0, kfAniResetWhenDone);
 		break;
 
 	case 1:
 		m_dir++;
-		if (m_dir > 7)
+		if (m_dir > 15)
 			m_dir = 0;
 		StartAnimation(&m_ani, m_pmuntc->anIdleStripIndices[m_dir], 0, kfAniResetWhenDone);
 		break;
@@ -98,6 +98,11 @@ void LRInfantryGob::Idle()
 		StartAnimation(&m_ani, m_pmuntc->anIdleStripIndices[m_dir], 0, kfAniResetWhenDone);
 		break;
 	}
+}
+
+int LRInfantryGob::GetIdleCountdown()
+{
+    return (GetRandom() % 100) + 50; // somewhere between 8 & 12 seconds
 }
 
 int LRInfantryGob::ProcessStateMachineMessage(State st, Message *pmsg)

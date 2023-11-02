@@ -13,12 +13,12 @@ TBitmap *ButtonControl::s_ptbmRightDown;
 
 bool ButtonControl::InitClass()
 {
-	s_ptbmLeftUp = GetSharedTBitmap("buttonleftup.tbm");
-	s_ptbmMidUp = GetSharedTBitmap("buttonmidup.tbm");
-	s_ptbmRightUp = GetSharedTBitmap("buttonrightup.tbm");
-	s_ptbmLeftDown = GetSharedTBitmap("buttonleftdown.tbm");
-	s_ptbmMidDown = GetSharedTBitmap("buttonmiddown.tbm");
-	s_ptbmRightDown = GetSharedTBitmap("buttonrightdown.tbm");
+	s_ptbmLeftUp = CreateTBitmap("buttonleftup.png");
+	s_ptbmMidUp = CreateTBitmap("buttonmidup.png");
+	s_ptbmRightUp = CreateTBitmap("buttonrightup.png");
+	s_ptbmLeftDown = CreateTBitmap("buttonleftdown.png");
+	s_ptbmMidDown = CreateTBitmap("buttonmiddown.png");
+	s_ptbmRightDown = CreateTBitmap("buttonrightdown.png");
 	return true;
 }
 
@@ -56,11 +56,11 @@ bool ButtonControl::Init(char *pszLabel, int nfnt, char *szFnUp, char *szFnDown,
 	gmmgr.WritePtr(m_szLabel, 0, pszLabel, strlen(pszLabel) + 1);
 
 	if (szFnUp != NULL)
-		m_ptbmUp = GetSharedTBitmap(szFnUp);
+		m_ptbmUp = CreateTBitmap(szFnUp);
 	if (szFnDown != NULL)
-		m_ptbmDown = GetSharedTBitmap(szFnDown);
+		m_ptbmDown = CreateTBitmap(szFnDown);
 	if (szFnDisabled != NULL)
-		m_ptbmDisabled = GetSharedTBitmap(szFnDisabled);
+		m_ptbmDisabled = CreateTBitmap(szFnDisabled);
 
 	if (m_ptbmUp != NULL && m_ptbmDown != NULL) {
 		Size siz1 = { 0, 0 };
@@ -111,7 +111,7 @@ bool ButtonControl::Init(Form *pfrm, IniReader *pini, FindProp *pfind)
 	if (!Control::Init(pfrm, pini, pfind))
 		return false;
 
-	// idc (x y cx cy) "label" nfnt center buttonup.tbm buttondown.tbm 
+	// idc (x y cx cy) "label" nfnt center buttonup.png buttondown.png 
 
 	char szFnUp[kcbFilename];
 	char szFnDown[kcbFilename];
@@ -219,7 +219,7 @@ void ButtonControl::OnPaint(DibBitmap *pbm)
 			x += sizMid.cx;
 		}
 #else
-		ptbmMid->FillTo(0, pbm, x, rcT.top, xRight - x, rcT.Height());
+		ptbmMid->FillTo(pbm, x, rcT.top, xRight - x, rcT.Height());
 		x = xRight;
 #endif
 
@@ -277,9 +277,9 @@ void ButtonControl::SetText(char *psz)
 bool PresetButtonControl::Init(char *pszLabel, int nfnt, char *szFnUp, char *szFnDown, bool fCenter)
 {
 	if (szFnUp != NULL)
-		m_ptbmUp = GetSharedTBitmap(szFnUp);
+		m_ptbmUp = CreateTBitmap(szFnUp);
 	if (szFnDown != NULL)
-		m_ptbmDown = GetSharedTBitmap(szFnDown);
+		m_ptbmDown = CreateTBitmap(szFnDown);
 
 	if (m_ptbmUp != NULL) {
 		Size siz1 = { 0, 0 };
@@ -349,10 +349,10 @@ bool CheckBoxControl::Init(Form *pfrm, word idc, int x, int y, char *pszLabel, i
 
 bool CheckBoxControl::InitClass()
 {
-	s_ptbmOnUp = GetSharedTBitmap("checkboxonup.tbm");
-	s_ptbmOnDown = GetSharedTBitmap("checkboxondown.tbm");
-	s_ptbmOffUp = GetSharedTBitmap("checkboxoffup.tbm");
-	s_ptbmOffDown = GetSharedTBitmap("checkboxoffdown.tbm");
+	s_ptbmOnUp = CreateTBitmap("checkboxonup.png");
+	s_ptbmOnDown = CreateTBitmap("checkboxondown.png");
+	s_ptbmOffUp = CreateTBitmap("checkboxoffup.png");
+	s_ptbmOffDown = CreateTBitmap("checkboxoffdown.png");
 
 	return true;
 }
@@ -649,7 +649,7 @@ int GetFancyTextExtent(Font *pfntDefault, char *psz, int cch)
 
 int FancyTextCore(DibBitmap *pbm, Font *pfntDefault, char *psz, int x, int y, int cch, bool fGetExtent)
 {
-	dword *mpscaiclr = NULL;
+	Color *pclr = NULL;
 	Font *pfnt = pfntDefault;
 
 	if (cch == 0)
@@ -668,7 +668,7 @@ int FancyTextCore(DibBitmap *pbm, Font *pfntDefault, char *psz, int x, int y, in
 				if (fGetExtent) {
 					cx += pfnt->GetTextExtent(psz, (int)(pchT - psz - 1));
 				} else {
-					cx += pfnt->DrawText(pbm, psz, x, y, (int)(pchT - psz - 1), mpscaiclr);
+					cx += pfnt->DrawText(pbm, psz, x, y, (int)(pchT - psz - 1), pclr);
 					x += cx;
 				}
 				psz = pchT;
@@ -681,9 +681,8 @@ int FancyTextCore(DibBitmap *pbm, Font *pfntDefault, char *psz, int x, int y, in
 				psz = pchT++;
 				continue;
 
-			// "@S." turns on mapping to local player's side color
+			// TODO: "@S." turns on mapping to local player's side color
 			case 'S':
-				mpscaiclr = TBitmap::s_ampscaiclrSide[gpplrLocal->GetSide()];
 				cchT--;
 				pchT++;
 				break;
@@ -703,7 +702,7 @@ int FancyTextCore(DibBitmap *pbm, Font *pfntDefault, char *psz, int x, int y, in
 		if (fGetExtent)
 			cx += pfnt->GetTextExtent(psz, (int)(pchT - psz));
 		else
-			cx += pfnt->DrawText(pbm, psz, x, y, (int)(pchT - psz), mpscaiclr);
+			cx += pfnt->DrawText(pbm, psz, x, y, (int)(pchT - psz), pclr);
 	}
 
 	return cx;
@@ -713,12 +712,12 @@ int FancyTextCore(DibBitmap *pbm, Font *pfntDefault, char *psz, int x, int y, in
 
 BitmapControl::BitmapControl()
 {
-	m_phtbm = NULL;
+	m_ptbm = NULL;
 }
 
 BitmapControl::~BitmapControl()
 {
-	delete m_phtbm;
+	delete m_ptbm;
 }
 
 bool BitmapControl::Init(Form *pfrm, IniReader *pini, FindProp *pfind)
@@ -728,7 +727,7 @@ bool BitmapControl::Init(Form *pfrm, IniReader *pini, FindProp *pfind)
 	if (!Control::Init(pfrm, pini, pfind))
 		return false;
 
-	// idc (x y cx cy) bitmap.tbm
+	// idc (x y cx cy) bitmap.png
 
 	char szBitmap[kcbFilename];
 	int cArgs = pini->GetPropertyValue(pfind, "%*d (%*d %*d %*d %*d) %s", szBitmap);
@@ -741,24 +740,12 @@ bool BitmapControl::Init(Form *pfrm, IniReader *pini, FindProp *pfind)
 	if (cArgs != 1)
 		return false;
 
-	// Distinguish between RawBitmaps and TBitmaps
-	// UNDONE: this should probably be handled by an HtBitmap::Init.
-
-	int cch = (int)strlen(szBitmap);
-	if (szBitmap[cch - 3] == 'r') {
-		Assert(szBitmap[cch - 4] == '.' && szBitmap[cch - 2] == 'b' && szBitmap[cch - 1] == 'm');
-		m_phtbm = new RawBitmap();
-	} else {
-		m_phtbm = new TBitmap();
-	}
-	if (m_phtbm == NULL)
-		return false;
-
-	if (!m_phtbm->Init(szBitmap))
+    m_ptbm = CreateTBitmap(szBitmap);
+    if (!m_ptbm)
 		return false;
 
 	Size siz = { 0, 0 };
-	m_phtbm->GetSize(&siz);
+	m_ptbm->GetSize(&siz);
 	m_rc.right = m_rc.left + siz.cx;
 	m_rc.bottom = m_rc.top + siz.cy;
 	return true;
@@ -771,24 +758,24 @@ void BitmapControl::OnPaint(DibBitmap *pbm)
 
 	// Draw image
 
-	if (m_phtbm != NULL)
+	if (m_ptbm != NULL)
 		
 		// HACK: this "& ~1" is to force word alignment on CE as required by RawBitmap::BltTo
 		// Character portrats have some side color in them that must be mapped to blue
 
-		m_phtbm->BltTo(pbm, (m_rc.left + rcForm.left) & ~1, m_rc.top + rcForm.top, kside1);
+		m_ptbm->BltTo(pbm, (m_rc.left + rcForm.left) & ~1, m_rc.top + rcForm.top, kside1);
 }
 
-void BitmapControl::SetBitmap(HtBitmap *phtbm)
+void BitmapControl::SetBitmap(TBitmap *ptbm)
 {
-	if (m_phtbm != NULL)
-		delete m_phtbm;
+	if (m_ptbm != NULL)
+		delete m_ptbm;
 
-	m_phtbm = phtbm;
+	m_ptbm = ptbm;
 
-	if (m_phtbm != NULL) {
+	if (m_ptbm != NULL) {
 		Size siz;
-		m_phtbm->GetSize(&siz);
+		m_ptbm->GetSize(&siz);
 		if (m_rc.Width() < siz.cx)
 			m_rc.right = m_rc.left + siz.cx;
 		if (m_rc.Height() < siz.cy)
@@ -863,10 +850,10 @@ TBitmap *ListControl::s_ptbmScrollDownDown;
 
 bool ListControl::InitClass()
 {
-	s_ptbmScrollUpUp = GetSharedTBitmap("scrollupup.tbm");
-	s_ptbmScrollUpDown = GetSharedTBitmap("scrollupdown.tbm");
-	s_ptbmScrollDownUp = GetSharedTBitmap("scrolldownup.tbm");
-	s_ptbmScrollDownDown = GetSharedTBitmap("scrolldowndown.tbm");
+	s_ptbmScrollUpUp = CreateTBitmap("scrollupup.png");
+	s_ptbmScrollUpDown = CreateTBitmap("scrollupdown.png");
+	s_ptbmScrollDownUp = CreateTBitmap("scrolldownup.png");
+	s_ptbmScrollDownDown = CreateTBitmap("scrolldowndown.png");
 	return true;
 }
 
@@ -1747,7 +1734,7 @@ TBitmap *PipMeterControl::s_ptbmPip;
 
 bool PipMeterControl::InitClass()
 {
-	s_ptbmPip = GetSharedTBitmap("pip.tbm");
+	s_ptbmPip = CreateTBitmap("pip.png");
 	return true;
 }
 
@@ -1777,7 +1764,7 @@ bool PipMeterControl::Init(Form *pfrm, word idc, int x, int y, int cx, int cy,
 bool PipMeterControl::Init(char *szPip)
 {
 	if (szPip != NULL)
-		m_ptbmPip = GetSharedTBitmap(szPip);
+		m_ptbmPip = CreateTBitmap(szPip);
 	else
 		m_ptbmPip = s_ptbmPip;
 
@@ -1791,7 +1778,7 @@ bool PipMeterControl::Init(Form *pfrm, IniReader *pini, FindProp *pfind)
 	if (!Control::Init(pfrm, pini, pfind))
 		return false;
 
-	// idc (x y cx cy) [pip.tbm]
+	// idc (x y cx cy) [pip.png]
 
 	char szPip[kcbFilename];
 	
@@ -1843,9 +1830,9 @@ TBitmap *DamageMeterControl::s_ptbmStructure;
 
 bool DamageMeterControl::InitClass()
 {
-	s_ptbmInfantry = GetSharedTBitmap("damage_infantry.tbm");
-	s_ptbmVehicle = GetSharedTBitmap("damage_vehicle.tbm");
-	s_ptbmStructure = GetSharedTBitmap("damage_structure.tbm");
+	s_ptbmInfantry = CreateTBitmap("damage_infantry.png");
+	s_ptbmVehicle = CreateTBitmap("damage_vehicle.png");
+	s_ptbmStructure = CreateTBitmap("damage_structure.png");
 	return true;
 }
 

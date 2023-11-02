@@ -40,7 +40,7 @@ bool HostHelpers::Init() {
     sprintf(gszMissionPackInfosDir, "%s/Library/MissionPackInfos", pszHomeDir);
     sprintf(gszSaveGamesDir, "%s/Library/SaveGames", pszHomeDir);
     sprintf(gszCompletesDir, "%s/Library/Completes", pszHomeDir);
-    sprintf(gszPrefsFilename, "%s/Library/prefs.bin", pszHomeDir);
+    sprintf(gszPrefsFilename, "%s/Library/prefs.json", pszHomeDir);
 
     // Make the directories under Library
     mkdir(gszMissionPacksDir, 0755);
@@ -142,11 +142,6 @@ void HostHelpers::GetSurfaceProperties(SurfaceProperties *pprops)
         cxScreen = [UIScreen mainScreen].bounds.size.height;
         cyScreen = [UIScreen mainScreen].bounds.size.width;
     }
-
-    // WI grpahics are whack when the screen width is an odd number of bounds
-    // Hack: "increase" the screen width by one pixel if needed
-    if (cxScreen % 2)
-        cxScreen++;
     
     pprops->cxWidth = cxScreen;
     pprops->cyHeight = cyScreen;
@@ -200,15 +195,6 @@ DibBitmap *HostHelpers::CreateFrontDib(int cx, int cy, int nDegreeOrientation)
 #else
     Log("HostHelpers::CreateFrontDib not implemented yet");
     return NULL;
-#endif
-}
-    
-void HostHelpers::SetPalette(Palette *ppal)
-{
-#if 0
-    [g_appDelegate setPalette:ppal];
-#else
-    Log("HostHelpers::SetPalette not implemented yet");
 #endif
 }
 

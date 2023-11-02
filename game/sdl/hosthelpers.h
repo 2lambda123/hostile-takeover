@@ -41,7 +41,6 @@ public:
     static void ResetScrollOffset();
     static void SetFormMgrs(FormMgr *pfrmmSimUI, FormMgr *pfrmmInput);
     static DibBitmap *CreateFrontDib(int cx, int cy, int nDegreeOrientation);
-    static void SetPalette(Palette *ppal);
     static const char *GetUdid();
     static void InitiateAsk(const char *title, int max, const char *def,
             int keyboard, bool secure);
@@ -52,6 +51,8 @@ public:
     static void GameThreadStart(void *pv);
     static void DisplayInitComplete();
     static const char *GetPlatformString();
+    static bool DirExists(char *psz);
+    static bool EnumFiles(Enum *penm, int key, char *pszFn, int cbFn);
 
     // TODO(darrinm): unused?
     static int main(int argc, char **argv);

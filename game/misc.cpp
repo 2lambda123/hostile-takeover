@@ -631,6 +631,23 @@ Direction TurnToward(Direction dirTo, Direction dirFrom)
 	return ((unsigned int)dirFrom) % 8;
 }
 
+Direction16 TurnToward16(Direction16 dirTo, Direction16 dirFrom)
+{
+	int d = dirTo - dirFrom;
+	if (d == 0)
+		return dirTo;
+
+	if (d < -8)
+		d = 1;
+	else if (d > 8)
+		d = -1;
+	if (d < 0)
+		dirFrom--;
+	else
+		dirFrom++;
+	return ((unsigned int)dirFrom) % 16;
+}
+
 int isqrt(int val1, int val2)
 {
     return (int)isqrt((dword)val1 * (dword)val1 + (dword)val2 * (dword)val2);
@@ -717,79 +734,11 @@ void WLineIterator::Init(WCoord wx1, WCoord wy1, WCoord wx2, WCoord wy2, int nIn
 }
 
 //
-// Palette and color helpers
+// Color helpers
 //
 
 const short SCALEFACTOR = 128;
 const word SCALEMAX = 256 * (word)SCALEFACTOR;
-
-// nHueOffset is in the range from -100 to +100
-// nLumOffset is in the range from -100 to +100
-// nSatMultiplier is in the range from -100 to +100 and is scaled non-linearly
-// to cover the desired (finely tuned) range.
-
-void SetHslAdjustedPalette(Palette *ppal, short nHueOffset, short nSatMultiplier, short nLumOffset)
-{
-	// Incorporate hardware-correcting values
-
-	short nHueT, nSatT, nLumT;
-	gpdisp->GetHslAdjustments(&nHueT, &nSatT, &nLumT);
-	nHueOffset += nHueT;
-	if (nHueT < -100)
-		nHueT = -100;
-	else if (nHueT > 100)
-		nHueT = 100;
-	nSatMultiplier += nSatT;
-	if (nSatMultiplier < -100)
-		nSatMultiplier = -100;
-	else if (nSatMultiplier > 100)
-		nSatMultiplier = 100;
-	nLumOffset += nLumT;
-	if (nLumOffset < -100)
-		nLumOffset = -100;
-	else if (nLumOffset > 100)
-		nLumOffset = 100;
-
-	short nHueAdd = (nHueOffset * (3 * SCALEFACTOR)) / 100;
-	short nLumAdd = (short)((nLumOffset * 10000L) / 100);
-
-	// maps +/-100 to 128-384
-	long nT = 128 + (((nSatMultiplier + 100L) * 256) / 200);
-
-	// non-linearly transforms to the range 0-1024 (actually 64-576)
-	short nSatMult = (short)((nT * nT) / 256);
-
-	int cEntries = BigWord(ppal->cEntries);
-	Palette *ppalMod = (Palette *)new byte[sizeof(word) + (cEntries * sizeof(ppal->argb))];
-	ppalMod->cEntries = ppal->cEntries;
-
-	word nH, nS, nL;
-
-	for (int i = 0; i < cEntries; i++) {
-		RgbToHsl(ppal->argb[i][0], ppal->argb[i][1], ppal->argb[i][2], &nH, &nS, &nL);
-
-		int nT = nH + nHueAdd;
-		if (nT >= 6 * SCALEFACTOR)
-			nT -= 6 * SCALEFACTOR;
-		else if (nT < 0)
-			nT += 6 * SCALEFACTOR;
-
-		long lS = (nS * (long)nSatMult) / 256L;
-		if (lS > SCALEMAX)
-			lS = (long)SCALEMAX;
-
-		long lL = nL + (long)nLumAdd;
-		if (lL > SCALEMAX)
-			lL = (long)SCALEMAX;
-		else if (lL < 0)
-			lL = 0;
-
-		HslToRgb((word)nT, (word)lS, (word)lL, &ppalMod->argb[i][0], &ppalMod->argb[i][1], &ppalMod->argb[i][2]);
-	}
-
-	gpdisp->SetPalette(ppalMod);
-	delete[] ppalMod;
-}
 
 // Takes byte-sized RGB values in the range from 0-255 and returns
 // word-sized HSL values in the range from 0-32768 (H, S, L).
@@ -1318,6 +1267,7 @@ void Stream::ReadBytesRLE(byte *pb, int cb)
 // Return the appropriate color for the current device
 //
 
+# if 0
 Color gaclr4bpp[] = {
 	0x000f, // black
 	0x0000, // white
@@ -1368,7 +1318,9 @@ Color gaclr4bpp[] = {
 	0x000f, // neutral side 3
 	0x000f, // neutral side 4
 };
+#endif
 
+#if 0
 Color gaclr8bpp[] = {
 	0x0000, // black
 	0x0001, // white
@@ -1419,6 +1371,59 @@ Color gaclr8bpp[] = {
 	40,		// neutral side 3
 	45,		// neutral side 4
 	52,		// Galaxite fullness indicator/neon pink
+};
+#endif
+
+Color gaclr24bpp[] = {
+    { 0,   0,   0   }, // black
+    { 252, 252, 252 }, // white
+    { 252, 0,   0   }, // red
+    { 0,   252, 0   }, // green
+    { 252, 252, 0   }, // yellow
+    { 0,   116, 232 }, // side 1 color
+    { 232, 32,  0   }, // side 2 color
+    { 232, 228, 0   }, // side 3 color
+    { 104, 252, 252 }, // side 4 color
+    { 0,   192, 196 }, // button fill
+    { 0,   96,  196 }, // button border
+    { 0,   0,   0   }, // menu background
+    { 0,   0,   0   }, // form background
+    { 28,  56,  59  }, // mini map border area
+    { 155, 88,  140 }, // Galaxite minimap color
+    { 84,  160, 172 }, // button fill highlight
+    { 132, 128, 128 }, // medium gray
+    { 0,   116, 232 }, // blue side 0
+    { 0,   96,  196 }, // blue side 1
+    { 0,   64,  120 }, // blue side 2
+    { 0,   48,  92  }, // blue side 3
+    { 0,   32,  64  }, // blue side 4
+    { 232, 32,  0   }, // red side 0
+    { 196, 29,  0   }, // red side 1
+    { 120, 8,   0   }, // red side 2
+    { 92,  8,   0   }, // red side 3
+    { 64,  8,   0   }, // red side 4
+    { 232, 228, 0   }, // yellow side 0
+    { 196, 192, 0   }, // yellow side 1
+    { 120, 116, 0   }, // yellow side 2
+    { 92,  88,  0   }, // yellow side 3
+    { 64,  60,  0   }, // yellow side 4
+    { 104, 252, 252 }, // cyan side 0
+    { 84,  160, 172 }, // cyan side 1
+    { 56,  120, 131 }, // cyan side 2
+    { 40,  80,  88  }, // cyan side 3
+    { 28,  56,  59  }, // cyan side 4
+    { 16,  40,  43  }, // list background
+    { 84,  160, 172 }, // list border
+    { 184, 248, 248 }, // Jana font
+    { 104, 252, 252 }, // Andy font
+    { 232, 228, 0   }, // Olstrom font
+    { 232, 32,  0   }, // Fox font
+    { 216, 216, 216 }, // neutral side 0
+    { 168, 168, 168 }, // neutral side 1
+    { 120, 120, 120 }, // neutral side 2
+    { 92,  92,  92  }, // neutral side 3
+    { 64,  64,  64  }, // neutral side 4
+    { 252, 0,   252 }  // Galaxite fullness indicator/neon pink
 };
 
 int gaiclrSide[kcSides] = { kiclrSideNeutral, kiclrSide1, kiclrSide2, kiclrSide3, kiclrSide4 };

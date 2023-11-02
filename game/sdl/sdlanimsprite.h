@@ -14,7 +14,6 @@ public:
     ~SdlAnimSprite();
 
     // AnimationSprite
-    virtual void SetPalette(Palette *ppal);
     virtual void CaptureFrame(UnitGob *pgob);
     virtual void SetScaleAnimation(float nScaleStart, float nScaleEnd,
             dword cms, dword cmsRate, bool fAutoDestroy);
@@ -45,10 +44,8 @@ private:
     dword hash_;
     int cx_, cy_;
     int xOrigin_, yOrigin_;
-    SDL_Texture *texture_;
-    SDL_Surface *surface_;
+    DibBitmap *pbm_;
     SpriteManager *psprm_;
-    dword mp8bpp32bpp_[256];
     float nScaleStart_, nScaleEnd_;
     long msAnimateStart_;
     dword cmsAnimate_;

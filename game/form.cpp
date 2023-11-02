@@ -39,11 +39,6 @@ Form::~Form()
 	if (m_pfrmm != NULL)
 		m_pfrmm->RemoveForm(this);
 
-	if (m_wf & kfFrmHasPalette)
-		gpakr.UnmapFile(&m_fmapPalette);
-	if (m_wf & kfFrmHasShadowMap)
-		gpakr.UnmapFile(&m_fmapShadowMap);
-
 	// Mark deleted for debugging purposes
 
 	m_wf |= kfFrmDeleted;
@@ -160,7 +155,6 @@ bool Form::InitFromProperties(FormMgr *pfrmm, word idf, IniReader *pini, char *p
 
 	int x, y, cx, cy;
 	char szBitmap[kcbFilename];
-	char szPalette[kcbFilename];
 	int idcDefault;
 	char szArgs[3][32];
 	int cArgs = pini->GetPropertyValue(pszForm, "FORM", "(%d %d %d %d) %d %s %s %s",
@@ -213,9 +207,6 @@ bool Form::InitFromProperties(FormMgr *pfrmm, word idf, IniReader *pini, char *p
 	cArgs = pini->GetPropertyValue(pszForm, "FORMBITMAP", "%s", szBitmap);
 	if (cArgs == 0)
 		szBitmap[0] = 0;
-	cArgs = pini->GetPropertyValue(pszForm, "FORMPALETTE", "%s", szPalette);
-	if (cArgs == 0)
-		szPalette[0] = 0;
 	cArgs = pini->GetPropertyValue(pszForm, "FORMBACKCOLOR", "%d", &m_iclrBack);
 	if (cArgs == 0)
 		m_iclrBack = -1;
@@ -225,7 +216,7 @@ bool Form::InitFromProperties(FormMgr *pfrmm, word idf, IniReader *pini, char *p
 	m_ptbm = NULL;
 	m_rc.Set(x, y, x + cx, y + cy);
 	if (szBitmap[0] != 0) {
-		m_ptbm = LoadTBitmap(szBitmap);
+		m_ptbm = CreateTBitmap(szBitmap);
 		if (m_ptbm == NULL)
 			return false;
 		Size siz;
@@ -234,27 +225,6 @@ bool Form::InitFromProperties(FormMgr *pfrmm, word idf, IniReader *pini, char *p
 	}
 	m_pfrmm = pfrmm;
 	m_idf = idf;
-
-	// Load and set the form Palette, if any
-
-	if (szPalette[0] != 0) {
-		Palette *ppal = (Palette *)gpakr.MapFile(szPalette, &m_fmapPalette);
-		Assert(ppal != NULL);
-		if (ppal == NULL)
-			return false;
-		m_wf |= kfFrmHasPalette;
-
-		// Select palette
-
-		SetHslAdjustedPalette(ppal, gnHueOffset, gnSatMultiplier, gnLumOffset);
-
-		// Load and set a corresponding shadow map if it exists
-
-		strcat(szPalette, ".shadowmap");
-		gmpiclriclrShadow = (byte *)gpakr.MapFile(szPalette, &m_fmapShadowMap);
-		if (gmpiclriclrShadow != NULL)
-			m_wf |= kfFrmHasShadowMap;
-	}
 
 	return true;
 }
@@ -751,13 +721,13 @@ void FillHelper(DibBitmap *pbm, UpdateMap *pupd, Rect *prc, Color clr)
 	}
 }
 
-void BltHelper(DibBitmap *pbm, HtBitmap *phtbm, UpdateMap *pupd, int xDst, int yDst)
+void BltHelper(DibBitmap *pbm, TBitmap *ptbm, UpdateMap *pupd, int xDst, int yDst)
 {
 	if (pupd == NULL) {
-		phtbm->BltTo(pbm, xDst, yDst);
+		ptbm->BltTo(pbm, xDst, yDst);
 	} else {
 		Size siz;
-		phtbm->GetSize(&siz);
+		ptbm->GetSize(&siz);
 		Rect rc;
 		rc.Set(xDst, yDst, xDst + siz.cx, yDst + siz.cy);
 		Rect rcInvalid;
@@ -769,7 +739,7 @@ void BltHelper(DibBitmap *pbm, HtBitmap *phtbm, UpdateMap *pupd, int xDst, int y
 			rcSrc.top = rcInvalid.top - yDst;
 			rcSrc.right = rcSrc.left + rcInvalid.Width();
 			rcSrc.bottom = rcSrc.top + rcInvalid.Height();
-			phtbm->BltTo(pbm, rcInvalid.left, rcInvalid.top, &rcSrc);
+			ptbm->BltTo(pbm, rcInvalid.left, rcInvalid.top, &rcSrc);
 		}
 	}
 }
